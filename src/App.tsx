@@ -34,7 +34,11 @@ import {
   LogIn,
   Loader2,
   AlertCircle,
-  X
+  X,
+  Trash2,
+  RotateCcw,
+  Sparkles,
+  List
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -57,7 +61,8 @@ import {
   serverTimestamp,
   doc,
   setDoc,
-  getDoc
+  getDoc,
+  deleteDoc
 } from 'firebase/firestore';
 
 // --- Error Handling ---
@@ -142,10 +147,10 @@ const TRANSLATIONS = {
     favorites: "Favorites",
     work: "Work",
     personal: "Personal",
-    archive: "Archive",
+    archive: "Recycle Bin",
     settings: "Settings",
     addBookmark: "Add Bookmark",
-    welcome: "Welcome back, Curator",
+    welcome: "Welcome back",
     hello: "Hello",
     categories: "Categories",
     bookmarks: "Bookmarks",
@@ -170,24 +175,30 @@ const TRANSLATIONS = {
     saved: "Saved",
     profile: "Profile",
     tools: "Tools",
-    curatorPro: "Curator Pro",
-    digitalCurator: "The Digital Curator",
+    curatorPro: "Premium Member",
+    digitalCurator: "Lumina Space",
     typeCommand: "Type a command or search...",
     illustration: "Illustration",
     anime: "Anime",
     searchRecognition: "Search & Recognition",
     acgCommunity: "ACG Community",
-    practicalTools: "Practical Tools"
+    practicalTools: "Practical Tools",
+    archiveDesc: "Recently deleted or archived items",
+    emptyArchive: "Recycle bin is empty",
+    restore: "Restore",
+    deletePermanently: "Delete Permanently",
+    luminaSpace: "Lumina Space",
+    premiumMember: "Premium Member"
   },
   zh: {
     dashboard: "仪表盘",
     favorites: "收藏夹",
     work: "工作",
     personal: "个人",
-    archive: "归档",
+    archive: "回收站",
     settings: "设置",
     addBookmark: "添加书签",
-    welcome: "欢迎回来，策展人",
+    welcome: "欢迎回来",
     hello: "你好",
     categories: "分类",
     bookmarks: "书签",
@@ -212,14 +223,20 @@ const TRANSLATIONS = {
     saved: "已保存",
     profile: "个人资料",
     tools: "工具",
-    curatorPro: "专业策展人",
-    digitalCurator: "数字策展人",
+    curatorPro: "高级会员",
+    digitalCurator: "Lumina 空间",
     typeCommand: "输入命令或搜索...",
     illustration: "插画与图站",
     anime: "在线动漫",
     searchRecognition: "搜图与识别",
     acgCommunity: "ACG 社区",
-    practicalTools: "实用工具"
+    practicalTools: "实用工具",
+    archiveDesc: "最近删除或归档的项目",
+    emptyArchive: "回收站是空的",
+    restore: "还原",
+    deletePermanently: "永久删除",
+    luminaSpace: "Lumina 空间",
+    premiumMember: "高级会员"
   }
 };
 
@@ -232,6 +249,11 @@ interface Bookmark {
   description: string;
   icon: string;
   tag?: string;
+  isFavorite?: boolean;
+  isArchived?: boolean;
+  onFavorite?: () => void;
+  onArchive?: () => void;
+  onDelete?: () => void;
 }
 
 interface Category {
@@ -392,19 +414,54 @@ const SidebarItem = ({ icon: Icon, label, active = false, onClick }: { icon: any
   </button>
 );
 
-const CategoryCard = ({ category }: { category: Category, key?: string }) => {
+const BookmarkCard = ({ bookmark, t }: { bookmark: Bookmark, t: any }) => {
+  return (
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="p-4 sm:p-5 rounded-3xl bg-surface-container-low border border-outline-variant/10 group hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 relative overflow-hidden"
+    >
+      <div className="flex items-start justify-between mb-4">
+        <div className="w-12 h-12 rounded-2xl bg-white dark:bg-surface shadow-sm flex items-center justify-center text-2xl overflow-hidden">
+          <img src={bookmark.icon} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+        </div>
+        <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button 
+            onClick={(e) => { e.preventDefault(); bookmark.onFavorite?.(); }}
+            className={`p-2 rounded-xl transition-all ${bookmark.isFavorite ? 'bg-primary/10 text-primary' : 'bg-surface hover:bg-primary/10 hover:text-primary'}`}
+          >
+            <Star className={`w-4 h-4 ${bookmark.isFavorite ? 'fill-current' : ''}`} />
+          </button>
+          <button 
+            onClick={(e) => { e.preventDefault(); bookmark.onArchive?.(); }}
+            className="p-2 rounded-xl bg-surface hover:bg-secondary/10 hover:text-secondary transition-all"
+          >
+            <Archive className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+      
+      <a href={bookmark.url} target="_blank" rel="noopener noreferrer" className="block space-y-1">
+        <h4 className="font-bold text-sm sm:text-base truncate group-hover:text-primary transition-colors">{bookmark.title}</h4>
+        <p className="text-[10px] sm:text-xs text-outline line-clamp-2 min-h-[2.5rem] leading-relaxed">{bookmark.description}</p>
+      </a>
+
+      <div className="mt-4 pt-4 border-t border-outline-variant/5 flex items-center justify-between">
+        <span className="px-2 py-0.5 rounded-full bg-surface-container-high text-[9px] font-bold text-outline uppercase tracking-wider">
+          {bookmark.tag || 'General'}
+        </span>
+        <ExternalLink className="w-3 h-3 text-outline group-hover:text-primary transition-colors" />
+      </div>
+    </motion.div>
+  );
+};
+
+const CategoryCard = ({ category }: { category: Category }) => {
   const colorClasses = {
     blue: 'bg-primary-fixed text-primary',
     purple: 'bg-secondary-fixed text-secondary',
     green: 'bg-tertiary-fixed text-tertiary',
     gray: 'bg-surface-container-highest text-outline'
-  };
-
-  const tagClasses = {
-    blue: 'bg-primary-fixed text-on-primary-fixed-variant',
-    purple: 'bg-secondary-fixed text-on-secondary-fixed-variant',
-    green: 'bg-tertiary-fixed text-on-tertiary-fixed',
-    gray: 'bg-surface-container-highest text-on-surface-variant'
   };
 
   return (
@@ -425,15 +482,10 @@ const CategoryCard = ({ category }: { category: Category, key?: string }) => {
             <p className="text-[10px] text-outline font-medium">{category.subtitle}</p>
           </div>
         </div>
-        {category.color !== 'gray' && (
-          <span className={`px-3 py-1 text-[9px] font-bold rounded-full tracking-widest uppercase ${tagClasses[category.color]}`}>
-            {category.color.toUpperCase()}
-          </span>
-        )}
       </div>
 
       <div className={`grid gap-3 sm:gap-4 ${category.isLarge ? 'sm:grid-cols-2' : 'grid-cols-1'}`}>
-        {category.bookmarks.map((bookmark: any) => (
+        {category.bookmarks.filter(b => !b.isArchived).map((bookmark: any) => (
           <div 
             key={bookmark.id}
             className="p-3 sm:p-4 rounded-xl bg-surface-container-low flex items-center gap-3 sm:gap-4 hover:bg-surface-bright hover:shadow-sm border border-transparent hover:border-outline-variant/20 transition-all group relative"
@@ -448,23 +500,23 @@ const CategoryCard = ({ category }: { category: Category, key?: string }) => {
                 <img src={bookmark.icon} alt={bookmark.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs sm:text-sm font-bold truncate group-hover:text-primary transition-colors">{bookmark.title}</p>
-                </div>
+                <p className="text-xs sm:text-sm font-bold truncate group-hover:text-primary transition-colors">{bookmark.title}</p>
                 <p className="text-[9px] sm:text-[10px] text-outline truncate">{bookmark.description}</p>
               </div>
             </a>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <button 
-                onClick={(e) => {
-                  e.preventDefault();
-                  bookmark.onFavorite?.();
-                }}
+                onClick={(e) => { e.preventDefault(); bookmark.onFavorite?.(); }}
                 className={`p-1.5 rounded-lg transition-colors ${bookmark.isFavorite ? 'text-primary bg-primary/10' : 'text-outline hover:text-primary hover:bg-primary/5'}`}
               >
                 <Star className={`w-3.5 h-3.5 ${bookmark.isFavorite ? 'fill-current' : ''}`} />
               </button>
-              <ExternalLink className="w-3 h-3 text-outline opacity-0 group-hover:opacity-100 transition-opacity" />
+              <button 
+                onClick={(e) => { e.preventDefault(); bookmark.onArchive?.(); }}
+                className="p-1.5 rounded-lg text-outline hover:text-secondary hover:bg-secondary/5 transition-colors opacity-0 group-hover:opacity-100"
+              >
+                <Archive className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
         ))}
@@ -613,6 +665,26 @@ export default function App() {
     }
   };
 
+  const toggleArchive = async (bookmarkId: string, currentStatus: boolean) => {
+    if (!user) return signIn();
+    const path = `users/${user.uid}/bookmarks/${bookmarkId}`;
+    try {
+      await setDoc(doc(db, path), { isArchived: !currentStatus }, { merge: true });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, path);
+    }
+  };
+
+  const deleteBookmark = async (bookmarkId: string) => {
+    if (!user) return signIn();
+    const path = `users/${user.uid}/bookmarks/${bookmarkId}`;
+    try {
+      await deleteDoc(doc(db, path));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, path);
+    }
+  };
+
   const handleAddBookmark = async () => {
     if (!user) return signIn();
     if (!newBookmark.title || !newBookmark.url || !newBookmark.categoryId) return;
@@ -623,6 +695,7 @@ export default function App() {
         ...newBookmark,
         uid: user.uid,
         isFavorite: false,
+        isArchived: false,
         createdAt: serverTimestamp()
       });
       setIsAddModalOpen(false);
@@ -633,14 +706,16 @@ export default function App() {
   };
 
   const renderContent = () => {
+    const t = TRANSLATIONS[lang];
+    
     if (activeTab === 'settings') {
       return (
-        <div className="space-y-8 max-w-4xl mx-auto">
+        <div className="space-y-8 max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="flex items-center gap-4 mb-2">
-            <div className="w-12 h-12 rounded-2xl bg-primary-fixed flex items-center justify-center text-primary">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
               <Settings className="w-6 h-6" />
             </div>
-            <h2 className="text-3xl font-headline font-extrabold">{t.settings}</h2>
+            <h2 className="text-3xl font-headline font-extrabold tracking-tight">{t.settings}</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -699,15 +774,17 @@ export default function App() {
     if (activeTab === 'personal') {
       if (!user) {
         return (
-          <div className="text-center py-20 max-w-md mx-auto">
-            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6 text-primary">
-              <UserIcon className="w-10 h-10" />
+          <div className="h-[60vh] flex flex-col items-center justify-center text-center space-y-6 animate-in fade-in zoom-in duration-700">
+            <div className="w-24 h-24 rounded-3xl bg-primary/10 text-primary flex items-center justify-center animate-bounce">
+              <UserIcon className="w-12 h-12" />
             </div>
-            <h3 className="text-2xl font-headline font-extrabold mb-4">Personal Space</h3>
-            <p className="text-sm text-outline mb-8">Sign in to access your personal curator profile, track your productivity, and manage private collections.</p>
+            <div className="max-w-md space-y-2">
+              <h2 className="text-3xl font-headline font-black tracking-tight">Personal Space</h2>
+              <p className="text-outline font-medium">Sign in to access your personal bookmarks, private collections, and personalized insights.</p>
+            </div>
             <button 
               onClick={signIn}
-              className="w-full py-4 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
+              className="px-8 py-4 bg-primary text-white rounded-full font-bold shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
             >
               Sign In with Google
             </button>
@@ -715,11 +792,11 @@ export default function App() {
         );
       }
       return (
-        <div className="space-y-12 max-w-5xl mx-auto">
+        <div className="space-y-12 max-w-5xl mx-auto animate-in fade-in duration-700">
           {/* Profile Header */}
-          <section className="relative h-48 sm:h-64 rounded-[2.5rem] overflow-hidden cloud-shadow">
-            <img src="https://picsum.photos/seed/profile/1200/400" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-            <div className="absolute inset-0 bg-gradient-to-t from-on-surface/80 to-transparent"></div>
+          <section className="relative h-48 sm:h-64 rounded-[2.5rem] overflow-hidden cloud-shadow group">
+            <img src="https://picsum.photos/seed/profile/1200/400" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" referrerPolicy="no-referrer" />
+            <div className="absolute inset-0 bg-gradient-to-t from-on-surface/90 via-on-surface/20 to-transparent"></div>
             <div className="absolute bottom-8 left-8 right-8 flex items-end gap-6">
               <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 border-surface overflow-hidden shadow-2xl">
                 <img src={user.photoURL || ''} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -736,10 +813,10 @@ export default function App() {
             {[
               { label: t.bookmarks, value: categories.reduce((acc, c) => acc + c.bookmarks.length, 0), icon: Star, color: 'text-primary' },
               { label: t.categories, value: categories.length, icon: LayoutGrid, color: 'text-secondary' },
-              { label: 'Favorites', value: categories.flatMap(c => c.bookmarks).filter(b => (b as any).isFavorite).length, icon: Heart, color: 'text-red-500' },
+              { label: t.favorites, value: categories.flatMap(c => c.bookmarks).filter(b => (b as any).isFavorite).length, icon: Heart, color: 'text-red-500' },
               { label: 'Active Days', value: 12, icon: Zap, color: 'text-orange-500' }
             ].map((stat, i) => (
-              <div key={i} className="bg-surface-container-lowest p-6 rounded-3xl border border-outline-variant/10 cloud-shadow text-center">
+              <div key={i} className="bg-surface-container-lowest p-6 rounded-3xl border border-outline-variant/10 cloud-shadow text-center hover:scale-105 transition-transform">
                 <stat.icon className={`w-6 h-6 mx-auto mb-3 ${stat.color}`} />
                 <p className="text-2xl font-headline font-extrabold">{stat.value}</p>
                 <p className="text-[10px] font-bold text-outline uppercase tracking-widest mt-1">{stat.label}</p>
@@ -750,7 +827,7 @@ export default function App() {
           {/* Personal Categories */}
           <section>
             <div className="flex items-center justify-between mb-8">
-              <h3 className="text-2xl font-headline font-extrabold tracking-tight">Personal Categories</h3>
+              <h3 className="text-2xl font-headline font-extrabold tracking-tight">Your Collections</h3>
               <button onClick={() => setIsAddModalOpen(true)} className="text-sm font-bold text-primary hover:underline">Add New</button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -763,158 +840,217 @@ export default function App() {
       );
     }
 
-    let displayCategories = filteredCategories;
-    
-    if (activeTab === 'favorites') {
-      const favoriteBookmarks = categories.flatMap(c => c.bookmarks).filter(b => (b as any).isFavorite);
-      if (favoriteBookmarks.length === 0) {
-        return (
-          <div className="text-center py-20">
-            <Star className="w-16 h-16 text-outline/20 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-outline">{t.favorites} is empty</h3>
-            <p className="text-sm text-outline/60">Star your favorite bookmarks to see them here.</p>
-          </div>
-        );
-      }
-      displayCategories = [{
-        id: 'favorites',
-        title: t.favorites,
-        subtitle: 'Your starred collection',
-        icon: <Star className="w-6 h-6" />,
-        color: 'purple',
-        bookmarks: favoriteBookmarks,
-        isLarge: true
-      }];
-    } else if (['work', 'personal', 'archive'].includes(activeTab)) {
-      // For now, filter categories that might match or show empty
-      const matchedCategories = categories.filter(c => c.id === activeTab || c.title.toLowerCase().includes(activeTab));
-      if (matchedCategories.length === 0) {
-        return (
-          <div className="text-center py-20">
-            <Archive className="w-16 h-16 text-outline/20 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-outline">No items in {t[activeTab as keyof typeof t]}</h3>
-            <p className="text-sm text-outline/60">Categorize your bookmarks to organize your workspace.</p>
-          </div>
-        );
-      }
-      displayCategories = matchedCategories;
+    if (activeTab === 'archive') {
+      const archivedBookmarks = categories.flatMap(c => c.bookmarks).filter(b => (b as any).isArchived);
+      return (
+        <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+              <h2 className="text-4xl font-headline font-black tracking-tight mb-2">{t.archive}</h2>
+              <p className="text-outline font-medium">{t.archiveDesc}</p>
+            </div>
+            {archivedBookmarks.length > 0 && (
+              <button 
+                onClick={() => archivedBookmarks.forEach(b => deleteBookmark(b.id))}
+                className="px-6 py-3 rounded-2xl bg-red-500/10 text-red-500 text-xs font-bold hover:bg-red-500/20 transition-colors flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                {t.deletePermanently}
+              </button>
+            )}
+          </header>
+
+          {archivedBookmarks.length === 0 ? (
+            <div className="h-[50vh] flex flex-col items-center justify-center text-center space-y-6">
+              <div className="w-24 h-24 rounded-3xl bg-surface-container-low flex items-center justify-center text-outline/20">
+                <Archive className="w-12 h-12" />
+              </div>
+              <div className="max-w-xs space-y-2">
+                <h3 className="text-xl font-bold">{t.emptyArchive}</h3>
+                <p className="text-sm text-outline">Items you delete will appear here for 30 days before being permanently removed.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {archivedBookmarks.map(bookmark => (
+                <div key={bookmark.id} className="p-6 rounded-3xl bg-surface-container-low border border-outline-variant/10 group hover:border-primary/30 transition-all">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-12 h-12 rounded-2xl bg-white dark:bg-surface shadow-sm flex items-center justify-center text-2xl overflow-hidden">
+                      <img src={bookmark.icon} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => toggleArchive(bookmark.id, true)}
+                        className="p-2.5 rounded-xl bg-surface hover:bg-primary/10 hover:text-primary transition-all"
+                        title={t.restore}
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => deleteBookmark(bookmark.id)}
+                        className="p-2.5 rounded-xl bg-surface hover:bg-red-500/10 hover:text-red-500 transition-all"
+                        title={t.deletePermanently}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <h4 className="font-bold mb-1 truncate">{bookmark.title}</h4>
+                  <p className="text-xs text-outline line-clamp-2 mb-4">{bookmark.description}</p>
+                  <div className="pt-4 border-t border-outline-variant/5 flex items-center justify-between text-[10px] font-bold text-outline uppercase tracking-wider">
+                    <span>{bookmark.tag || 'General'}</span>
+                    <span>Deleted Recently</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
     }
 
+    const currentCategory = categories.find(c => c.id === activeTab);
+    const displayBookmarks = activeTab === 'dashboard' 
+      ? categories.flatMap(c => c.bookmarks).filter(b => !(b as any).isArchived).slice(0, 8)
+      : activeTab === 'favorites'
+        ? categories.flatMap(c => c.bookmarks).filter(b => (b as any).isFavorite && !(b as any).isArchived)
+        : currentCategory?.bookmarks.filter(b => !(b as any).isArchived) || [];
+
     return (
-      <div className="space-y-12 lg:space-y-16">
+      <div className="space-y-16 animate-in fade-in duration-1000">
         {activeTab === 'dashboard' && (
-          <>
-            {/* Hero Section */}
-            <section className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-              <motion.div 
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="space-y-2"
-              >
-                <p className="text-[10px] font-bold text-outline uppercase tracking-[0.3em]">{t.welcome}</p>
-                <h2 className="text-3xl sm:text-5xl lg:text-6xl font-headline font-extrabold tracking-tighter text-on-surface">
-                  {t.hello}, <span className="text-primary italic">{user?.displayName?.split(' ')[0] || 'Curator'}</span>.
-                </h2>
-              </motion.div>
-
-              <motion.div 
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="flex gap-3 sm:gap-4 w-full md:w-auto"
-              >
-                <div className="bg-surface-container-lowest px-4 sm:px-8 py-3 sm:py-5 rounded-2xl cloud-shadow border border-outline-variant/10 flex-1 text-center sm:text-left">
-                  <p className="text-xl sm:text-3xl font-headline font-extrabold text-primary">{categories.length.toString().padStart(2, '0')}</p>
-                  <p className="text-[9px] sm:text-[10px] font-bold text-outline uppercase tracking-widest mt-1">{t.categories}</p>
-                </div>
-                <div className="bg-surface-container-lowest px-4 sm:px-8 py-3 sm:py-5 rounded-2xl cloud-shadow border border-outline-variant/10 flex-1 text-center sm:text-left">
-                  <p className="text-xl sm:text-3xl font-headline font-extrabold text-primary">{categories.reduce((acc, c) => acc + c.bookmarks.length, 0).toString().padStart(2, '0')}</p>
-                  <p className="text-[9px] sm:text-[10px] font-bold text-outline uppercase tracking-widest mt-1">{t.bookmarks}</p>
-                </div>
-              </motion.div>
-            </section>
-
-            {/* Featured / Bento Grid */}
-            <section className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {/* Featured Card */}
-              <motion.div 
-                whileHover={{ y: -4 }}
-                className="md:col-span-2 relative overflow-hidden rounded-radius-xl bg-slate-900 h-[280px] sm:h-[320px] cloud-shadow group"
-              >
-                <img 
-                  src="https://picsum.photos/seed/abstract/1200/600" 
-                  alt="Featured" 
-                  className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>
-                <div className="absolute bottom-0 left-0 p-6 sm:p-10 max-w-lg">
-                  <span className="inline-block px-3 py-1 rounded-md bg-white/10 backdrop-blur-md text-white text-[10px] font-bold tracking-widest uppercase mb-4">{t.featured}</span>
-                  <h3 className="text-2xl sm:text-3xl font-headline font-extrabold text-white mb-4 tracking-tight">{t.mastering}</h3>
-                  <p className="text-slate-300 mb-6 text-xs sm:text-sm leading-relaxed hidden sm:block">A hand-picked selection of 24 tools for high-fidelity vector art and digital painting.</p>
-                  <button className="px-6 py-2.5 bg-white text-slate-900 rounded-full text-sm font-bold flex items-center gap-2 hover:bg-primary hover:text-white transition-all">
-                    {t.explore}
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </motion.div>
-
-              {/* Smart History / Daily Tip */}
-              <div className="flex flex-col gap-8">
-                <motion.div 
-                  whileHover={{ y: -4 }}
-                  className="flex-1 bg-secondary rounded-radius-xl p-6 sm:p-8 text-white relative overflow-hidden cloud-shadow group"
-                >
-                  <Zap className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 group-hover:rotate-12 transition-transform duration-500" />
-                  <h4 className="text-xl font-headline font-extrabold mb-2">{t.smartHistory}</h4>
-                  <p className="text-secondary-fixed text-sm opacity-80 leading-relaxed">{t.historyDesc}</p>
-                  <div className="mt-6 flex -space-x-2">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="w-10 h-10 rounded-full border-2 border-secondary bg-white/20 backdrop-blur-md flex items-center justify-center">
-                        <History className="w-4 h-4 text-white" />
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-
-                <motion.div 
-                  whileHover={{ y: -4 }}
-                  className="flex-1 bg-surface-container-lowest rounded-radius-xl p-6 sm:p-8 border border-outline-variant/10 cloud-shadow flex flex-col justify-center"
-                >
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-2xl bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed">
-                      <Command className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h4 className="font-headline font-extrabold text-on-surface">{t.dailyTip}</h4>
-                      <p className="text-[10px] text-outline font-bold uppercase tracking-widest">{t.productivity}</p>
-                    </div>
-                  </div>
-                  <p className="text-on-surface-variant text-sm italic leading-relaxed">"{t.tipDesc.replace('⌘', isMac ? '⌘' : 'Ctrl')}"</p>
-                </motion.div>
+          <section className="relative overflow-hidden rounded-[3rem] welcome-gradient p-8 sm:p-12 lg:p-20 border border-white/20 cloud-shadow group">
+            <div className="relative z-10 max-w-3xl space-y-8">
+              <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/40 backdrop-blur-md border border-white/40 text-primary text-[10px] font-black tracking-[0.15em] uppercase">
+                <Sparkles className="w-4 h-4" />
+                {t.featured}
               </div>
-            </section>
-          </>
+              <h2 className="text-5xl sm:text-6xl lg:text-8xl font-headline font-black tracking-tighter leading-[0.9] text-balance">
+                {user ? `${t.welcome}, ${user.displayName?.split(' ')[0]}` : t.welcome}
+              </h2>
+              <p className="text-xl sm:text-2xl text-on-surface/70 font-medium max-w-xl leading-relaxed text-balance">
+                Your curated universe of inspiration, tools, and knowledge. Organized for your unique lifestyle.
+              </p>
+              <div className="flex flex-wrap gap-6 pt-4">
+                <button 
+                  onClick={() => setIsAddModalOpen(true)}
+                  className="px-10 py-5 bg-primary text-white rounded-full font-black text-sm shadow-2xl shadow-primary/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"
+                >
+                  {t.explore}
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+                <div className="flex -space-x-4 items-center">
+                  {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="w-12 h-12 rounded-full border-4 border-white bg-surface-container-high overflow-hidden shadow-lg">
+                      <img src={`https://i.pravatar.cc/100?u=${i + 10}`} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                  <div className="pl-8 text-xs font-black text-outline uppercase tracking-widest">+1.2k members</div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Abstract Decorative Elements */}
+            <div className="absolute top-0 right-0 w-1/2 h-full hidden xl:block pointer-events-none">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/20 rounded-full blur-[120px] animate-pulse" />
+              <div className="absolute top-1/4 right-1/4 w-48 h-48 bg-secondary/30 rounded-[3rem] rotate-12 blur-3xl animate-float" />
+              <div className="absolute bottom-1/4 right-1/3 w-32 h-32 bg-tertiary/30 rounded-full blur-2xl animate-float" style={{ animationDelay: '1.5s' }} />
+            </div>
+          </section>
         )}
 
-        {/* Categories Grid */}
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {displayCategories.map(category => (
-            <CategoryCard 
-              key={category.id} 
-              category={{
-                ...category,
-                title: (t as any)[category.id] || category.title,
-                bookmarks: category.bookmarks.map(b => ({
-                  ...b,
-                  onFavorite: () => toggleFavorite(b.id, (b as any).isFavorite)
-                }))
-              }} 
-            />
-          ))}
+        {/* Categories Section */}
+        {(activeTab === 'dashboard' || currentCategory) && (
+          <section className="space-y-8">
+            <div className="flex items-center justify-between">
+              <h3 className="text-3xl font-headline font-black tracking-tight">{activeTab === 'dashboard' ? t.categories : currentCategory?.title}</h3>
+              <button className="text-xs font-black text-primary uppercase tracking-widest hover:underline">View All</button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {activeTab === 'dashboard' 
+                ? categories.slice(0, 3).map(category => (
+                    <CategoryCard 
+                      key={category.id} 
+                      category={{
+                        ...category,
+                        bookmarks: category.bookmarks.map(b => ({
+                          ...b,
+                          onFavorite: () => toggleFavorite(b.id, (b as any).isFavorite),
+                          onArchive: () => toggleArchive(b.id, (b as any).isArchived)
+                        }))
+                      }} 
+                    />
+                  ))
+                : currentCategory && (
+                    <CategoryCard 
+                      category={{
+                        ...currentCategory,
+                        bookmarks: currentCategory.bookmarks.map(b => ({
+                          ...b,
+                          onFavorite: () => toggleFavorite(b.id, (b as any).isFavorite),
+                          onArchive: () => toggleArchive(b.id, (b as any).isArchived)
+                        }))
+                      }} 
+                    />
+                  )
+              }
+            </div>
+          </section>
+        )}
+
+        {/* Bookmarks Section */}
+        <section className="space-y-8">
+          <div className="flex items-center justify-between">
+            <h3 className="text-3xl font-headline font-black tracking-tight">
+              {activeTab === 'dashboard' ? 'Recent Bookmarks' : activeTab === 'favorites' ? t.favorites : t.bookmarks}
+            </h3>
+            <div className="flex items-center gap-3">
+              <button className="p-3 rounded-2xl bg-surface-container-low text-outline hover:text-primary transition-all">
+                <LayoutGrid className="w-5 h-5" />
+              </button>
+              <button className="p-3 rounded-2xl bg-surface-container-low text-outline hover:text-primary transition-all">
+                <List className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+          
+          {displayBookmarks.length === 0 ? (
+            <div className="py-32 text-center space-y-6 rounded-[3rem] border-4 border-dashed border-outline-variant/10 bg-surface-container-low/30">
+              <div className="w-20 h-20 rounded-3xl bg-surface-container-low mx-auto flex items-center justify-center text-outline/10">
+                <Plus className="w-10 h-10" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xl font-bold text-outline">No bookmarks yet</p>
+                <p className="text-sm text-outline/60">Start by adding your first bookmark to this collection.</p>
+              </div>
+              <button 
+                onClick={() => setIsAddModalOpen(true)}
+                className="px-8 py-3 bg-primary text-white rounded-full font-bold text-xs shadow-lg shadow-primary/20 hover:scale-105 transition-all"
+              >
+                Add Bookmark
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {displayBookmarks.map(bookmark => (
+                <BookmarkCard 
+                  key={bookmark.id} 
+                  bookmark={{
+                    ...bookmark,
+                    onFavorite: () => toggleFavorite(bookmark.id, (bookmark as any).isFavorite),
+                    onArchive: () => toggleArchive(bookmark.id, (bookmark as any).isArchived),
+                    onDelete: () => deleteBookmark(bookmark.id)
+                  }} 
+                  t={t}
+                />
+              ))}
+            </div>
+          )}
         </section>
       </div>
     );
   };
+
 
   // Handle keyboard shortcuts
   React.useEffect(() => {
@@ -1103,7 +1239,7 @@ export default function App() {
             </div>
             <h1 className="text-2xl font-headline font-extrabold tracking-tighter">Lumina</h1>
           </div>
-          <p className="text-[10px] font-bold text-outline uppercase tracking-[0.2em] ml-1">{t.digitalCurator}</p>
+          <p className="text-[10px] font-bold text-outline uppercase tracking-[0.2em] ml-1">{t.luminaSpace}</p>
         </div>
 
         <nav className="flex-1 space-y-1">
@@ -1142,7 +1278,7 @@ export default function App() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold truncate">{user?.displayName || 'Guest'}</p>
-              <p className="text-[10px] text-outline font-medium uppercase tracking-wider">{user ? t.curatorPro : 'Sign In Required'}</p>
+              <p className="text-[10px] text-outline font-medium uppercase tracking-wider">{user ? t.premiumMember : 'Sign In Required'}</p>
             </div>
             {user && (
               <button 
