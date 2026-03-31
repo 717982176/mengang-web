@@ -175,7 +175,7 @@ const TRANSLATIONS = {
     saved: "Saved",
     profile: "Profile",
     tools: "Tools",
-    curatorPro: "Premium Member",
+    curatorPro: "Administrator",
     digitalCurator: "Lumina Space",
     typeCommand: "Type a command or search...",
     illustration: "Illustration",
@@ -188,42 +188,91 @@ const TRANSLATIONS = {
     restore: "Restore",
     deletePermanently: "Delete Permanently",
     luminaSpace: "Lumina Space",
-    premiumMember: "Premium Member"
+    premiumMember: "Administrator",
+    wallpaper: "Wallpaper",
+    wallpaperUrl: "Wallpaper URL",
+    uploadImage: "Upload Image",
+    customWallpaper: "Custom Wallpaper",
+    defaultWallpaper: "Default Wallpaper",
+    recommendWallpaper: "Recommend Wallpaper",
+    recentBookmarks: "Recent Bookmarks",
+    noBookmarks: "No bookmarks yet",
+    addFirst: "Start by adding your first bookmark to this collection.",
+    appearance: "Appearance",
+    account: "Account",
+    language: "Language",
+    signOut: "Sign Out",
+    signInRequired: "Sign In Required",
+    signInGoogle: "Sign In with Google",
+    guestMsg: "You are currently using Lumina as a guest.",
+    personalSpace: "Personal Space",
+    personalDesc: "Sign in to access your personal bookmarks, private collections, and personalized insights.",
+    activeDays: "Active Days",
+    yourCollections: "Your Collections",
+    addNew: "Add New",
+    deletedRecently: "Deleted Recently",
+    itemsDeleteMsg: "Items you delete will appear here for 30 days before being permanently removed.",
+    searchResources: "Search resources...",
+    totalAssets: "Total Assets",
+    inspirationLibrary: "Your Digital Library of Inspiration",
+    inspirationDesc: "A curated repository of aesthetics, technology, and foundational principles.",
+    enterGallery: "Enter Gallery",
+    designFoundations: "Design Foundations",
+    creativeTech: "Creative Tech",
+    viewAll: "View All",
+    updating: "Updating",
+    submitResource: "Submit Resource",
+    networkLoad: "Network Load",
+    processingPower: "Processing Power",
+    expandDiagnostics: "Expand Diagnostics",
+    reset: "Reset",
+    enterUrl: "Enter image URL...",
+    appearanceSettings: "Appearance Settings",
+    accountSettings: "Account Settings",
+    generalSettings: "General Settings",
+    about: "About Lumina",
+    version: "Version",
+    role: "Role",
+    email: "Email",
+    name: "Name",
+    lastLogin: "Last Login",
+    security: "Security",
+    help: "Help & Support"
   },
   zh: {
     dashboard: "仪表盘",
     favorites: "收藏夹",
     work: "工作",
-    personal: "个人",
+    personal: "个人中心",
     archive: "回收站",
-    settings: "设置",
+    settings: "系统设置",
     addBookmark: "添加书签",
     welcome: "欢迎回来",
     hello: "你好",
-    categories: "分类",
-    bookmarks: "书签",
-    featured: "精选收藏",
+    categories: "分类管理",
+    bookmarks: "书签列表",
+    featured: "精选推荐",
     mastering: "掌握现代插画工作流",
     explore: "立即探索",
-    smartHistory: "智能历史",
+    smartHistory: "历史记录",
     historyDesc: "快速回到您最近的 5 次研究会话。",
     dailyTip: "每日技巧",
-    productivity: "生产力",
+    productivity: "生产力工具",
     tipDesc: "在任何地方使用 ⌘ + K 触发全局命令面板。",
-    searchPlaceholder: "搜索命令或书签...",
+    searchPlaceholder: "搜索命令、书签或分类...",
     quickActions: "快速操作",
-    changeTheme: "更改主题",
-    themeDesc: "在明亮和黑暗模式之间切换",
+    changeTheme: "切换主题",
+    themeDesc: "在明亮和黑暗模式之间切换界面",
     navigate: "导航",
     select: "选择",
     adminLogin: "管理员登录",
     systemStatus: "系统状态",
     privacy: "隐私政策",
     home: "首页",
-    saved: "已保存",
-    profile: "个人资料",
-    tools: "工具",
-    curatorPro: "高级会员",
+    saved: "已收藏",
+    profile: "个人中心",
+    tools: "工具箱",
+    curatorPro: "管理员",
     digitalCurator: "Lumina 空间",
     typeCommand: "输入命令或搜索...",
     illustration: "插画与图站",
@@ -231,12 +280,106 @@ const TRANSLATIONS = {
     searchRecognition: "搜图与识别",
     acgCommunity: "ACG 社区",
     practicalTools: "实用工具",
-    archiveDesc: "最近删除或归档的项目",
+    archiveDesc: "这里存放最近删除的项目",
     emptyArchive: "回收站是空的",
     restore: "还原",
     deletePermanently: "永久删除",
     luminaSpace: "Lumina 空间",
-    premiumMember: "高级会员"
+    premiumMember: "管理员",
+    wallpaper: "个性化壁纸",
+    wallpaperUrl: "壁纸链接 (URL)",
+    uploadImage: "上传本地图片",
+    customWallpaper: "自定义壁纸",
+    defaultWallpaper: "默认壁纸",
+    recommendWallpaper: "推荐壁纸源",
+    recentBookmarks: "最近添加",
+    noBookmarks: "暂无书签",
+    addFirst: "开始添加您的第一个书签到此收藏。",
+    appearance: "外观与界面",
+    account: "账户管理",
+    language: "语言设置",
+    signOut: "退出当前账号",
+    signInRequired: "需要登录",
+    signInGoogle: "使用 Google 账号登录",
+    guestMsg: "您当前正以访客身份使用 Lumina。",
+    personalSpace: "个人空间",
+    personalDesc: "登录以访问您的个人书签、私人收藏和个性化见解。",
+    activeDays: "活跃天数",
+    yourCollections: "您的收藏夹",
+    addNew: "新增项目",
+    deletedRecently: "最近删除",
+    itemsDeleteMsg: "您删除的项目将在此保留 30 天，然后被永久移除。",
+    searchResources: "搜索资源...",
+    totalAssets: "资产总数",
+    inspirationLibrary: "您的数字灵感库",
+    inspirationDesc: "审美、技术和基础原则的精选库。",
+    enterGallery: "进入画廊",
+    designFoundations: "设计基础",
+    creativeTech: "创意技术",
+    viewAll: "查看全部",
+    updating: "更新中",
+    submitResource: "提交资源",
+    systemStatus: "系统状态",
+    networkLoad: "网络负载",
+    processingPower: "处理能力",
+    expandDiagnostics: "展开诊断信息",
+    reset: "重置",
+    enterUrl: "输入图片链接...",
+    appearanceSettings: "外观设置",
+    accountSettings: "账户设置",
+    generalSettings: "通用设置",
+    about: "关于 Lumina",
+    version: "版本",
+    role: "角色",
+    email: "邮箱",
+    name: "昵称",
+    lastLogin: "最后登录",
+    security: "安全",
+    help: "帮助与支持"
+  }
+};��"
+  }
+};: "帮助与支持"
+  }
+};e: "昵称",
+    lastLogin: "最后登录",
+    security: "安全",
+    help: "帮助与支持"
+  }
+};ics: "展开诊断信息",
+    reset: "重置",
+    enterUrl: "输入图片链接...",
+    appearanceSettings: "外观设置",
+    accountSettings: "账户设置",
+    generalSettings: "通用设置",
+    about: "关于 Lumina",
+    version: "版本",
+    role: "角色",
+    email: "邮箱",
+    name: "昵称",
+    lastLogin: "最后登录",
+    security: "安全",
+    help: "帮助与支持"
+  }�以访问您的个人书签、私人收藏和个性化见解。",
+    activeDays: "活跃天数",
+    yourCollections: "您的收藏",
+    addNew: "新增",
+    deletedRecently: "最近删除",
+    itemsDeleteMsg: "您删除的项目将在此保留 30 天，然后被永久移除。",
+    searchResources: "搜索资源...",
+    totalAssets: "资产总数",
+    inspirationLibrary: "您的数字灵感库",
+    inspirationDesc: "审美、技术和基础原则的精选库。",
+    enterGallery: "进入画廊",
+    designFoundations: "设计基础",
+    creativeTech: "创意技术",
+    viewAll: "查看全部",
+    updating: "更新中",
+    submitResource: "提交资源",
+    systemStatus: "系统状态",
+    networkLoad: "网络负载",
+    processingPower: "处理能力",
+    expandDiagnostics: "展开诊断"
   }
 };
 
@@ -533,6 +676,8 @@ export default function App() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [wallpaper, setWallpaper] = useState<string | null>(null);
+  const [wallpaperType, setWallpaperType] = useState<'default' | 'custom'>('default');
   
   // Firebase State
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -541,10 +686,39 @@ export default function App() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newBookmark, setNewBookmark] = useState({ title: '', url: '', categoryId: '' });
 
-  const t = TRANSLATIONS[lang];
+  // Load wallpaper from localStorage
+  useEffect(() => {
+    const savedWallpaper = localStorage.getItem('lumina-wallpaper');
+    const savedType = localStorage.getItem('lumina-wallpaper-type');
+    if (savedWallpaper) setWallpaper(savedWallpaper);
+    if (savedType) setWallpaperType(savedType as any);
+  }, []);
 
-  const toggleLang = () => setLang(prev => prev === 'en' ? 'zh' : 'en');
-  const toggleTheme = () => setIsDarkMode(prev => !prev);
+  const handleWallpaperChange = (url: string) => {
+    setWallpaper(url);
+    setWallpaperType('custom');
+    localStorage.setItem('lumina-wallpaper', url);
+    localStorage.setItem('lumina-wallpaper-type', 'custom');
+  };
+
+  const resetWallpaper = () => {
+    setWallpaper(null);
+    setWallpaperType('default');
+    localStorage.removeItem('lumina-wallpaper');
+    localStorage.removeItem('lumina-wallpaper-type');
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        handleWallpaperChange(base64String);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Auth Listener
   useEffect(() => {
@@ -720,7 +894,7 @@ export default function App() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-surface-container-lowest rounded-3xl p-8 border border-outline-variant/10 space-y-6 cloud-shadow">
-              <h3 className="text-lg font-headline font-bold mb-4">Appearance</h3>
+              <h3 className="text-lg font-headline font-bold mb-4">{t.appearance}</h3>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-bold text-sm">{t.changeTheme}</p>
@@ -732,7 +906,7 @@ export default function App() {
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-bold text-sm">Language / 语言</p>
+                  <p className="font-bold text-sm">{t.language}</p>
                   <p className="text-[10px] text-outline">Switch between English and Chinese</p>
                 </div>
                 <button onClick={toggleLang} className="px-4 py-2 bg-surface-container-high rounded-xl font-bold text-xs hover:bg-primary/10 transition-colors">
@@ -742,26 +916,82 @@ export default function App() {
             </div>
 
             <div className="bg-surface-container-lowest rounded-3xl p-8 border border-outline-variant/10 space-y-6 cloud-shadow">
-              <h3 className="text-lg font-headline font-bold mb-4">Account</h3>
+              <h3 className="text-lg font-headline font-bold mb-4">{t.wallpaper}</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-outline uppercase tracking-widest mb-1.5 ml-1">{t.wallpaperUrl}</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      className="flex-1 px-4 py-2 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:border-primary outline-none transition-all text-sm"
+                      placeholder="https://..."
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleWallpaperChange((e.target as HTMLInputElement).value);
+                          (e.target as HTMLInputElement).value = '';
+                        }
+                      }}
+                    />
+                    <button className="p-2 bg-primary text-white rounded-xl">
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <label className="flex-1 py-2 bg-surface-container-high rounded-xl text-center text-xs font-bold cursor-pointer hover:bg-primary/10 transition-colors">
+                    <ImageIcon className="w-4 h-4 inline-block mr-2" />
+                    {t.uploadImage}
+                    <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+                  </label>
+                  <button onClick={resetWallpaper} className="px-4 py-2 bg-red-500/10 text-red-500 rounded-xl text-xs font-bold hover:bg-red-500/20 transition-colors">
+                    Reset
+                  </button>
+                </div>
+                <div className="pt-2">
+                  <p className="text-[10px] font-bold text-outline uppercase tracking-widest mb-2">{t.recommendWallpaper}</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      'https://picsum.photos/seed/lumina1/1200/800',
+                      'https://picsum.photos/seed/lumina2/1200/800',
+                      'https://picsum.photos/seed/lumina3/1200/800'
+                    ].map((url, i) => (
+                      <button 
+                        key={i} 
+                        onClick={() => handleWallpaperChange(url)}
+                        className="aspect-video rounded-lg overflow-hidden border-2 border-transparent hover:border-primary transition-all"
+                      >
+                        <img src={url} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-surface-container-lowest rounded-3xl p-8 border border-outline-variant/10 space-y-6 cloud-shadow md:col-span-2">
+              <h3 className="text-lg font-headline font-bold mb-4">{t.account}</h3>
               {user ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4 p-3 rounded-2xl bg-surface-container-low">
-                    <img src={user.photoURL || ''} className="w-10 h-10 rounded-full" referrerPolicy="no-referrer" />
+                <div className="flex flex-col sm:flex-row items-center gap-6">
+                  <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface-container-low flex-1 w-full">
+                    <img src={user.photoURL || ''} className="w-12 h-12 rounded-full" referrerPolicy="no-referrer" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold truncate">{user.displayName}</p>
-                      <p className="text-[10px] text-outline truncate">{user.email}</p>
+                      <p className="text-base font-bold truncate">{user.displayName}</p>
+                      <p className="text-xs text-outline truncate">{user.email}</p>
+                      <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-widest">
+                        {t.curatorPro}
+                      </span>
                     </div>
                   </div>
-                  <button onClick={firebaseLogOut} className="w-full py-3 px-4 bg-primary/10 text-primary rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-primary/20 transition-colors">
+                  <button onClick={firebaseLogOut} className="w-full sm:w-auto py-4 px-8 bg-red-500/10 text-red-500 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-red-500/20 transition-colors">
                     <LogOut className="w-4 h-4" />
-                    Sign Out
+                    {t.signOut}
                   </button>
                 </div>
               ) : (
-                <div className="text-center py-4">
-                  <p className="text-sm text-outline mb-4">You are currently using Lumina as a guest.</p>
-                  <button onClick={signIn} className="w-full py-3 px-4 bg-primary text-white rounded-xl font-bold text-sm hover:scale-[1.02] active:scale-95 transition-all">
-                    Sign In with Google
+                <div className="text-center py-8">
+                  <p className="text-sm text-outline mb-6">{t.guestMsg}</p>
+                  <button onClick={signIn} className="px-12 py-4 bg-primary text-white rounded-2xl font-bold text-sm hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20">
+                    {t.signInGoogle}
                   </button>
                 </div>
               )}
@@ -779,14 +1009,14 @@ export default function App() {
               <UserIcon className="w-12 h-12" />
             </div>
             <div className="max-w-md space-y-2">
-              <h2 className="text-3xl font-headline font-black tracking-tight">Personal Space</h2>
-              <p className="text-outline font-medium">Sign in to access your personal bookmarks, private collections, and personalized insights.</p>
+              <h2 className="text-3xl font-headline font-black tracking-tight">{t.personalSpace}</h2>
+              <p className="text-outline font-medium">{t.personalDesc}</p>
             </div>
             <button 
               onClick={signIn}
               className="px-8 py-4 bg-primary text-white rounded-full font-bold shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
             >
-              Sign In with Google
+              {t.signInGoogle}
             </button>
           </div>
         );
@@ -795,7 +1025,7 @@ export default function App() {
         <div className="space-y-12 max-w-5xl mx-auto animate-in fade-in duration-700">
           {/* Profile Header */}
           <section className="relative h-48 sm:h-64 rounded-[2.5rem] overflow-hidden cloud-shadow group">
-            <img src="https://picsum.photos/seed/profile/1200/400" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" referrerPolicy="no-referrer" />
+            <img src={wallpaper || "https://picsum.photos/seed/profile/1200/400"} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" referrerPolicy="no-referrer" />
             <div className="absolute inset-0 bg-gradient-to-t from-on-surface/90 via-on-surface/20 to-transparent"></div>
             <div className="absolute bottom-8 left-8 right-8 flex items-end gap-6">
               <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 border-surface overflow-hidden shadow-2xl">
@@ -814,7 +1044,7 @@ export default function App() {
               { label: t.bookmarks, value: categories.reduce((acc, c) => acc + c.bookmarks.length, 0), icon: Star, color: 'text-primary' },
               { label: t.categories, value: categories.length, icon: LayoutGrid, color: 'text-secondary' },
               { label: t.favorites, value: categories.flatMap(c => c.bookmarks).filter(b => (b as any).isFavorite).length, icon: Heart, color: 'text-red-500' },
-              { label: 'Active Days', value: 12, icon: Zap, color: 'text-orange-500' }
+              { label: t.activeDays, value: 12, icon: Zap, color: 'text-orange-500' }
             ].map((stat, i) => (
               <div key={i} className="bg-surface-container-lowest p-6 rounded-3xl border border-outline-variant/10 cloud-shadow text-center hover:scale-105 transition-transform">
                 <stat.icon className={`w-6 h-6 mx-auto mb-3 ${stat.color}`} />
@@ -827,8 +1057,8 @@ export default function App() {
           {/* Personal Categories */}
           <section>
             <div className="flex items-center justify-between mb-8">
-              <h3 className="text-2xl font-headline font-extrabold tracking-tight">Your Collections</h3>
-              <button onClick={() => setIsAddModalOpen(true)} className="text-sm font-bold text-primary hover:underline">Add New</button>
+              <h3 className="text-2xl font-headline font-extrabold tracking-tight">{t.yourCollections}</h3>
+              <button onClick={() => setIsAddModalOpen(true)} className="text-sm font-bold text-primary hover:underline">{t.addNew}</button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {categories.filter(c => c.id === 'personal' || c.id === 'work').map(category => (
@@ -919,16 +1149,28 @@ export default function App() {
     return (
       <div className="space-y-16 animate-in fade-in duration-1000">
         {activeTab === 'dashboard' && (
-          <section className="relative overflow-hidden rounded-[3rem] welcome-gradient p-8 sm:p-12 lg:p-20 border border-white/20 cloud-shadow group">
+          <section className="relative overflow-hidden rounded-[3rem] p-8 sm:p-12 lg:p-20 border border-white/20 cloud-shadow group min-h-[500px] flex items-center">
+            {/* Wallpaper Background */}
+            <div className="absolute inset-0 z-0">
+              <img 
+                src={wallpaper || "https://picsum.photos/seed/lumina_main/1920/1080"} 
+                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" 
+                alt=""
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-br from-surface/80 via-surface/40 to-transparent" />
+              <div className="absolute inset-0 bg-black/20" />
+            </div>
+
             <div className="relative z-10 max-w-3xl space-y-8">
               <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/40 backdrop-blur-md border border-white/40 text-primary text-[10px] font-black tracking-[0.15em] uppercase">
                 <Sparkles className="w-4 h-4" />
                 {t.featured}
               </div>
-              <h2 className="text-5xl sm:text-6xl lg:text-8xl font-headline font-black tracking-tighter leading-[0.9] text-balance">
+              <h2 className="text-5xl sm:text-6xl lg:text-8xl font-headline font-black tracking-tighter leading-[0.9] text-balance text-on-surface">
                 {user ? `${t.welcome}, ${user.displayName?.split(' ')[0]}` : t.welcome}
               </h2>
-              <p className="text-xl sm:text-2xl text-on-surface/70 font-medium max-w-xl leading-relaxed text-balance">
+              <p className="text-xl sm:text-2xl text-on-surface/80 font-medium max-w-xl leading-relaxed text-balance">
                 Your curated universe of inspiration, tools, and knowledge. Organized for your unique lifestyle.
               </p>
               <div className="flex flex-wrap gap-6 pt-4">
@@ -945,16 +1187,14 @@ export default function App() {
                       <img src={`https://i.pravatar.cc/100?u=${i + 10}`} alt="" className="w-full h-full object-cover" />
                     </div>
                   ))}
-                  <div className="pl-8 text-xs font-black text-outline uppercase tracking-widest">+1.2k members</div>
+                  <div className="pl-8 text-xs font-black text-on-surface/60 uppercase tracking-widest">+1.2k members</div>
                 </div>
               </div>
             </div>
             
             {/* Abstract Decorative Elements */}
             <div className="absolute top-0 right-0 w-1/2 h-full hidden xl:block pointer-events-none">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/20 rounded-full blur-[120px] animate-pulse" />
-              <div className="absolute top-1/4 right-1/4 w-48 h-48 bg-secondary/30 rounded-[3rem] rotate-12 blur-3xl animate-float" />
-              <div className="absolute bottom-1/4 right-1/3 w-32 h-32 bg-tertiary/30 rounded-full blur-2xl animate-float" style={{ animationDelay: '1.5s' }} />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] animate-pulse" />
             </div>
           </section>
         )}
@@ -964,7 +1204,7 @@ export default function App() {
           <section className="space-y-8">
             <div className="flex items-center justify-between">
               <h3 className="text-3xl font-headline font-black tracking-tight">{activeTab === 'dashboard' ? t.categories : currentCategory?.title}</h3>
-              <button className="text-xs font-black text-primary uppercase tracking-widest hover:underline">View All</button>
+              <button className="text-xs font-black text-primary uppercase tracking-widest hover:underline">{t.viewAll}</button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {activeTab === 'dashboard' 
@@ -1278,7 +1518,7 @@ export default function App() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold truncate">{user?.displayName || 'Guest'}</p>
-              <p className="text-[10px] text-outline font-medium uppercase tracking-wider">{user ? t.premiumMember : 'Sign In Required'}</p>
+              <p className="text-[10px] text-outline font-medium uppercase tracking-wider">{user ? t.curatorPro : 'Sign In Required'}</p>
             </div>
             {user && (
               <button 
@@ -1296,14 +1536,17 @@ export default function App() {
       {/* --- Main Content --- */}
       <main className="flex-1 lg:ml-64 min-h-screen flex flex-col">
         {/* Top Bar */}
-        <header className="sticky top-0 z-40 glass h-20 flex items-center justify-between px-8 lg:px-12">
-          <div className="flex-1 max-w-2xl">
+        <header className="sticky top-0 z-40 glass h-20 flex items-center justify-between px-4 sm:px-8 lg:px-12">
+          <div className="flex-1 max-w-2xl flex items-center gap-4">
+            <div className="lg:hidden w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg shrink-0">
+              <LayoutGrid className="w-6 h-6 fill-current" />
+            </div>
             <div 
-              className="relative group cursor-pointer"
+              className="relative group cursor-pointer flex-1"
               onClick={() => setIsCommandPaletteOpen(true)}
             >
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-outline group-focus-within:text-primary transition-colors" />
-              <div className="w-full h-12 pl-12 pr-4 bg-surface-container-highest/50 border-none rounded-xl flex items-center text-outline/60 text-sm font-sans">
+              <div className="w-full h-12 pl-12 pr-4 bg-surface-container-highest/50 border-none rounded-xl flex items-center text-outline/60 text-xs sm:text-sm font-sans truncate">
                 {t.searchPlaceholder}
               </div>
               <div className="absolute right-4 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-1.5">
@@ -1313,21 +1556,21 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4 ml-4 sm:ml-8">
+          <div className="flex items-center gap-2 sm:gap-4 ml-2 sm:ml-8">
             <button 
               onClick={toggleLang}
-              className="p-2.5 text-outline hover:text-on-surface hover:bg-surface-container-high rounded-full transition-all flex items-center gap-2"
+              className="p-2 sm:p-2.5 text-outline hover:text-on-surface hover:bg-surface-container-high rounded-full transition-all flex items-center gap-2"
             >
-              <Languages className="w-5 h-5" />
-              <span className="text-xs font-bold hidden md:block">{lang.toUpperCase()}</span>
+              <Languages className="w-4 h-4 sm:w-5 h-5" />
+              <span className="text-[10px] sm:text-xs font-bold hidden sm:block">{lang.toUpperCase()}</span>
             </button>
             <button 
               onClick={toggleTheme}
-              className="p-2.5 text-outline hover:text-on-surface hover:bg-surface-container-high rounded-full transition-all"
+              className="p-2 sm:p-2.5 text-outline hover:text-on-surface hover:bg-surface-container-high rounded-full transition-all"
             >
-              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              {isDarkMode ? <Sun className="w-4 h-4 sm:w-5 h-5" /> : <Moon className="w-4 h-4 sm:w-5 h-5" />}
             </button>
-            <button className="p-2.5 text-outline hover:text-on-surface hover:bg-surface-container-high rounded-full transition-all relative">
+            <button className="hidden sm:flex p-2.5 text-outline hover:text-on-surface hover:bg-surface-container-high rounded-full transition-all relative">
               <Bell className="w-5 h-5" />
               <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-primary rounded-full border-2 border-white"></span>
             </button>
@@ -1335,82 +1578,71 @@ export default function App() {
             {!isAuthReady ? (
               <Loader2 className="w-5 h-5 text-primary animate-spin" />
             ) : user ? (
-              <button className="hidden sm:flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-surface-container-low hover:bg-surface-container-high transition-all">
+              <button className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-surface-container-low hover:bg-surface-container-high transition-all">
                 <img 
                   src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}`} 
                   alt="User" 
-                  className="w-8 h-8 rounded-full object-cover"
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover"
                   referrerPolicy="no-referrer"
                 />
-                <ChevronDown className="w-4 h-4 text-outline" />
+                <ChevronDown className="w-3 h-3 sm:w-4 h-4 text-outline" />
               </button>
             ) : (
               <button 
                 onClick={signIn}
-                className="px-4 py-2 bg-primary text-white rounded-full text-xs font-bold flex items-center gap-2 hover:scale-105 transition-all"
+                className="px-3 sm:px-4 py-2 bg-primary text-white rounded-full text-[10px] sm:text-xs font-bold flex items-center gap-2 hover:scale-105 transition-all"
               >
-                <LogIn className="w-4 h-4" />
-                Sign In
+                <LogIn className="w-3 h-3 sm:w-4 h-4" />
+                <span className="hidden sm:inline">Sign In</span>
               </button>
             )}
           </div>
         </header>
 
-        {/* Content Canvas */}
-        <div className="p-4 sm:p-8 lg:p-12 max-w-7xl mx-auto w-full pb-32 lg:pb-12">
+        <div className="flex-1 p-4 sm:p-8 lg:p-12 pb-32 lg:pb-12 overflow-y-auto">
           {renderContent()}
         </div>
-
-        {/* Footer */}
-        <footer className="mt-auto py-12 px-8 lg:px-12 border-t border-outline-variant/10 flex flex-col md:flex-row justify-between items-center gap-6 pb-32 lg:pb-12">
-          <p className="text-xs text-outline font-medium">© 2024 Digital Curator Admin</p>
-          <div className="flex gap-8">
-            <a href="#" className="text-xs text-outline hover:text-primary transition-colors font-medium">{t.adminLogin}</a>
-            <a href="#" className="text-xs text-outline hover:text-primary transition-colors font-medium">{t.systemStatus}</a>
-            <a href="#" className="text-xs text-outline hover:text-primary transition-colors font-medium">{t.privacy}</a>
-          </div>
-        </footer>
       </main>
 
       {/* --- Mobile Bottom Nav --- */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-surface/90 backdrop-blur-2xl border-t border-outline-variant/10 flex justify-around items-center py-2 px-4 z-50 pb-safe">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-surface/80 backdrop-blur-3xl border-t border-outline-variant/10 flex justify-around items-center py-3 px-6 z-50 pb-safe shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]">
         <button 
           onClick={() => setActiveTab('dashboard')}
-          className={`flex flex-col items-center gap-1 p-2 ${activeTab === 'dashboard' ? 'text-primary' : 'text-outline'}`}
+          className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${activeTab === 'dashboard' ? 'text-primary scale-110' : 'text-outline hover:text-on-surface'}`}
         >
-          <LayoutGrid className={`w-5 h-5 ${activeTab === 'dashboard' ? 'fill-current' : ''}`} />
-          <span className="text-[9px] font-bold">{t.home}</span>
+          <LayoutGrid className={`w-6 h-6 ${activeTab === 'dashboard' ? 'fill-current' : ''}`} />
+          <span className="text-[10px] font-bold tracking-tight">{t.home}</span>
         </button>
         <button 
           onClick={() => setActiveTab('favorites')}
-          className={`flex flex-col items-center gap-1 p-2 ${activeTab === 'favorites' ? 'text-primary' : 'text-outline'}`}
+          className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${activeTab === 'favorites' ? 'text-primary scale-110' : 'text-outline hover:text-on-surface'}`}
         >
-          <Star className={`w-5 h-5 ${activeTab === 'favorites' ? 'fill-current' : ''}`} />
-          <span className="text-[9px] font-bold">{t.saved}</span>
+          <Star className={`w-6 h-6 ${activeTab === 'favorites' ? 'fill-current' : ''}`} />
+          <span className="text-[10px] font-bold tracking-tight">{t.saved}</span>
         </button>
         
-        <div className="relative -top-4">
+        <div className="relative -top-6">
           <button 
             onClick={() => setIsAddModalOpen(true)}
-            className="w-12 h-12 bg-gradient-to-br from-primary to-primary-container text-white rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-transform"
+            className="w-14 h-14 bg-gradient-to-br from-primary to-primary-container text-white rounded-2xl shadow-xl shadow-primary/30 flex items-center justify-center active:scale-90 transition-all border-4 border-surface"
           >
-            <Plus className="w-6 h-6" />
+            <Plus className="w-7 h-7" />
           </button>
         </div>
 
         <button 
           onClick={() => setActiveTab('personal')}
-          className={`flex flex-col items-center gap-1 p-2 ${activeTab === 'personal' ? 'text-primary' : 'text-outline'}`}
+          className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${activeTab === 'personal' ? 'text-primary scale-110' : 'text-outline hover:text-on-surface'}`}
         >
-          <UserIcon className={`w-5 h-5 ${activeTab === 'personal' ? 'fill-current' : ''}`} />
-          <span className="text-[9px] font-bold">{t.profile}</span>
+          <UserIcon className={`w-6 h-6 ${activeTab === 'personal' ? 'fill-current' : ''}`} />
+          <span className="text-[10px] font-bold tracking-tight">{t.profile}</span>
         </button>
         <button 
           onClick={() => setActiveTab('settings')}
-          className={`flex flex-col items-center gap-1 p-2 ${activeTab === 'settings' ? 'text-primary' : 'text-outline'}`}
+          className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${activeTab === 'settings' ? 'text-primary scale-110' : 'text-outline hover:text-on-surface'}`}
         >
-          <Settings className={`w-5 h-5 ${activeTab === 'settings' ? 'fill-current' : ''}`} />
-          <span className="text-[9px] font-bold">{t.settings}</span>
+          <Settings className={`w-6 h-6 ${activeTab === 'settings' ? 'fill-current' : ''}`} />
+          <span className="text-[10px] font-bold tracking-tight">{t.settings}</span>
         </button>
       </nav>
 
