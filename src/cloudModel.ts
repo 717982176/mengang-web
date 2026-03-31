@@ -10,6 +10,7 @@ import {
   type Lang,
   type Theme,
 } from './appData';
+import { normalizeBookmarkUrl } from './bookmarkTransfer';
 
 export interface UserProfileDocument {
   uid: string;
@@ -106,7 +107,7 @@ export function normalizeCategoryDocument(
 
 export function buildBookmarkDocument(bookmark: BookmarkRecord, uid: string): BookmarkDocument {
   const title = bookmark.title.trim() || 'Untitled';
-  const url = bookmark.url.trim() || '#';
+  const url = normalizeBookmarkUrl(bookmark.url) || 'https://example.com/';
 
   return {
     id: bookmark.id,
@@ -124,14 +125,14 @@ export function buildBookmarkDocument(bookmark: BookmarkRecord, uid: string): Bo
 
 export function normalizeBookmarkDocument(id: string, data: Partial<BookmarkDocument>): BookmarkRecord {
   const title = typeof data.title === 'string' && data.title.trim() ? data.title.trim() : 'Untitled';
-  const url = typeof data.url === 'string' && data.url.trim() ? data.url.trim() : '#';
+  const url = typeof data.url === 'string' && data.url.trim() ? normalizeBookmarkUrl(data.url) || data.url.trim() : '';
 
   return {
     id,
     title,
-    url,
+    url: url || 'https://example.com/',
     description: typeof data.description === 'string' && data.description.trim() ? data.description.trim() : 'No description yet.',
-    icon: typeof data.icon === 'string' && data.icon.trim() ? data.icon.trim() : buildFavicon(url, title),
+    icon: typeof data.icon === 'string' && data.icon.trim() ? data.icon.trim() : buildFavicon(url || 'https://example.com/', title),
     tag: typeof data.tag === 'string' && data.tag.trim() ? data.tag.trim() : 'General',
     categoryId: typeof data.categoryId === 'string' && data.categoryId.trim() ? data.categoryId.trim() : 'personal',
     isFavorite: Boolean(data.isFavorite),

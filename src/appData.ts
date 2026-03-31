@@ -1,3 +1,5 @@
+import { normalizeBookmarkUrl } from './bookmarkTransfer';
+
 export type Lang = 'zh' | 'en';
 export type Theme = 'dark' | 'light';
 export type ViewMode = 'grid' | 'list';
@@ -448,7 +450,7 @@ export function buildFavicon(url: string, title: string) {
 
 export function normalizeBookmark(bookmark: Partial<BookmarkRecord>): BookmarkRecord {
   const title = bookmark.title?.trim() || 'Untitled';
-  const url = bookmark.url?.trim() || '#';
+  const url = normalizeBookmarkUrl(bookmark.url || '') || 'https://example.com/';
   return {
     id: bookmark.id || crypto.randomUUID(),
     title,

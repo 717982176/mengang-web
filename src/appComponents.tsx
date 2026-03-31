@@ -173,6 +173,7 @@ export function BookmarkSection({
   onAdd,
   onFavorite,
   onArchive,
+  onDelete,
 }: {
   bookmarks: BookmarkRecord[];
   lang: Lang;
@@ -183,6 +184,7 @@ export function BookmarkSection({
   onAdd: () => void;
   onFavorite: (bookmark: BookmarkRecord) => void;
   onArchive: (bookmark: BookmarkRecord) => void;
+  onDelete?: (bookmark: BookmarkRecord) => void;
 }) {
   const openLinkLabel = lang === 'zh' ? '打开链接' : 'Open Link';
 
@@ -226,6 +228,11 @@ export function BookmarkSection({
                 <button className="icon-button" onClick={() => onArchive(bookmark)} type="button">
                   <Archive className="h-4 w-4" />
                 </button>
+                {onDelete && (
+                  <button className="icon-button" onClick={() => onDelete(bookmark)} type="button">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
                 <a className="icon-button" href={bookmark.url} rel="noreferrer" target="_blank">
                   <ExternalLink className="h-4 w-4" />
                 </a>
@@ -256,6 +263,11 @@ export function BookmarkSection({
               <button className="icon-button" onClick={() => onArchive(bookmark)} type="button">
                 <Archive className="h-4 w-4" />
               </button>
+              {onDelete && (
+                <button className="icon-button" onClick={() => onDelete(bookmark)} type="button">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
           <p className="mb-5 flex-1 text-sm leading-6 text-on-surface/62">{bookmark.description}</p>

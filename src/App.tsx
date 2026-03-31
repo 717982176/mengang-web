@@ -43,6 +43,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import { auth, db, logOut as firebaseLogOut, signIn } from './firebase';
 import {
@@ -72,6 +73,13 @@ import {
   type PreferencesDocument,
   type UserPreferences,
 } from './cloudModel';
+import {
+  buildBookmarkExportJson,
+  canImportBookmarkUrl,
+  createBookmarkFingerprint,
+  normalizeBookmarkUrl,
+  parseBookmarkImportText,
+} from './bookmarkTransfer';
 import {
   ArchiveGrid,
   BookmarkSection,
@@ -108,12 +116,17 @@ export default function App() {
     tag: '',
     categoryId: 'work',
   });
+  const [notice, setNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
+  const [isSavingBookmark, setIsSavingBookmark] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const preferencesRef = useRef<UserPreferences>({ lang, theme, wallpaper });
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   const t = TRANSLATIONS[lang];
   const currentLanguageCode = lang.toUpperCase();
   const currentLanguageLabel = lang === 'zh' ? t.languageLabelZh : t.languageLabelEn;
   const currentThemeLabel = theme === 'dark' ? t.themeLabelDark : t.themeLabelLight;
+  const createMessage = (zh: string, en: string) => (lang === 'zh' ? zh : en);
   const syncStateLabel = !user
     ? t.localOnly
     : syncError
@@ -143,6 +156,9 @@ export default function App() {
   const nonArchivedBookmarks = allBookmarks.filter((bookmark) => !bookmark.isArchived);
   const favoriteBookmarks = nonArchivedBookmarks.filter((bookmark) => bookmark.isFavorite);
   const archivedBookmarks = allBookmarks.filter((bookmark) => bookmark.isArchived);
+  const featuredBookmarks = Array.from(
+    new Map([...favoriteBookmarks, ...nonArchivedBookmarks].map((bookmark) => [bookmark.id, bookmark])).values(),
+  ).slice(0, 4);
   const queryText = searchQuery.trim().toLowerCase();
   const filteredCategories = categories
     .map((category) => ({ ...category, bookmarks: filterBookmarks(category.bookmarks, queryText) }))
@@ -186,6 +202,7 @@ export default function App() {
       setLastSyncAt(Date.now());
     } catch (error) {
       console.error('Failed to persist preferences', error);
+      setNotice({ tone: 'error', message: createMessage('设置同步失败，请稍后重试。', 'Settings sync failed. Please try again.') });
       setSyncError(lang === 'zh' ? '设置同步失败' : 'Failed to sync settings');
     }
   };
@@ -244,6 +261,12 @@ export default function App() {
     localStorage.removeItem(STORAGE_KEYS.wallpaper);
     setWallpaperInput('');
   }, [wallpaper]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 3600);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -437,40 +460,126 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [searchQuery]);
 
-  const setBookmarkValue = async (
-    bookmarkId: string,
-    patch: Partial<BookmarkRecord>,
-  ) => {
-    if (!user) return;
+  const updateBookmarkInState = (bookmarkId: string, updater: (bookmark: BookmarkRecord) => BookmarkRecord) => {
+    setCategories((prev) =>
+      prev.map((category) => ({
+        ...category,
+        bookmarks: category.bookmarks.map((bookmark) =>
+          bookmark.id === bookmarkId ? updater(bookmark) : bookmark,
+        ),
+      })),
+    );
+  };
+
+  const removeBookmarkFromState = (bookmarkId: string) => {
+    setCategories((prev) =>
+      prev.map((category) => ({
+        ...category,
+        bookmarks: category.bookmarks.filter((bookmark) => bookmark.id !== bookmarkId),
+      })),
+    );
+  };
+
+  const setBookmarkValue = async (bookmark: BookmarkRecord, patch: Partial<BookmarkRecord>) => {
+    if (!user) {
+      setNotice({ tone: 'error', message: createMessage('请先登录后再操作书签。', 'Sign in before editing bookmarks.') });
+      return;
+    }
+
+    const nextBookmark = normalizeBookmark({
+      ...bookmark,
+      ...patch,
+      url: normalizeBookmarkUrl(String(patch.url ?? bookmark.url)) || bookmark.url,
+      createdAt: bookmark.createdAt,
+    });
+
+    updateBookmarkInState(bookmark.id, () => nextBookmark);
     try {
-      await setDoc(doc(db, `users/${user.uid}/bookmarks/${bookmarkId}`), patch, { merge: true });
+      await setDoc(doc(db, `users/${user.uid}/bookmarks/${bookmark.id}`), buildBookmarkDocument(nextBookmark, user.uid), {
+        merge: true,
+      });
       setSyncError(null);
       setLastSyncAt(Date.now());
     } catch (error) {
       console.error('Failed to update bookmark', error);
+      updateBookmarkInState(bookmark.id, () => bookmark);
+      setNotice({ tone: 'error', message: createMessage('书签更新失败，请稍后重试。', 'Bookmark update failed. Please try again.') });
       setSyncError(lang === 'zh' ? '书签更新失败' : 'Failed to update bookmark');
     }
   };
 
   const toggleFavorite = (bookmark: BookmarkRecord) =>
-    void setBookmarkValue(bookmark.id, { isFavorite: !bookmark.isFavorite });
+    void setBookmarkValue(bookmark, { isFavorite: !bookmark.isFavorite });
 
   const toggleArchive = (bookmark: BookmarkRecord) =>
-    void setBookmarkValue(bookmark.id, { isArchived: !bookmark.isArchived });
+    void setBookmarkValue(bookmark, { isArchived: !bookmark.isArchived });
 
   const deleteBookmark = async (bookmark: BookmarkRecord) => {
-    if (!user) return;
+    if (!user) {
+      setNotice({ tone: 'error', message: createMessage('请先登录后再操作书签。', 'Sign in before editing bookmarks.') });
+      return;
+    }
+
+    const previousCategories = categories;
+    removeBookmarkFromState(bookmark.id);
     try {
       await deleteDoc(doc(db, `users/${user.uid}/bookmarks/${bookmark.id}`));
       setSyncError(null);
       setLastSyncAt(Date.now());
     } catch (error) {
       console.error('Failed to delete bookmark', error);
+      setCategories(previousCategories);
+      setNotice({ tone: 'error', message: createMessage('删除失败，请稍后重试。', 'Delete failed. Please try again.') });
       setSyncError(lang === 'zh' ? '书签删除失败' : 'Failed to delete bookmark');
     }
   };
 
+  const handleDeleteArchivedAll = async () => {
+    if (!user || archivedBookmarks.length === 0) return;
+
+    const previousCategories = categories;
+    setCategories((prev) =>
+      prev.map((category) => ({
+        ...category,
+        bookmarks: category.bookmarks.filter((bookmark) => !bookmark.isArchived),
+      })),
+    );
+
+    try {
+      const batch = writeBatch(db);
+      for (const bookmark of archivedBookmarks) {
+        batch.delete(doc(db, `users/${user.uid}/bookmarks/${bookmark.id}`));
+      }
+      await batch.commit();
+      setSyncError(null);
+      setLastSyncAt(Date.now());
+      setNotice({
+        tone: 'success',
+        message: createMessage(`已删除 ${archivedBookmarks.length} 个归档书签。`, `Deleted ${archivedBookmarks.length} archived bookmarks.`),
+      });
+    } catch (error) {
+      console.error('Failed to clear archive', error);
+      setCategories(previousCategories);
+      setNotice({ tone: 'error', message: createMessage('清空归档失败，请稍后重试。', 'Failed to clear archive. Please try again.') });
+      setSyncError(createMessage('批量删除失败', 'Failed to clear archive'));
+    }
+  };
+
   const openAddModal = () => {
+    const activeCategoryId =
+      activeTab !== 'dashboard' &&
+      activeTab !== 'favorites' &&
+      activeTab !== 'archive' &&
+      activeTab !== 'settings' &&
+      categories.some((category) => category.id === activeTab)
+        ? activeTab
+        : null;
+
+    setNotice(null);
+    setNewBookmark((prev) => ({
+      ...prev,
+      categoryId: activeCategoryId || prev.categoryId,
+    }));
     setIsCommandPaletteOpen(false);
     setIsAddModalOpen(true);
   };
@@ -481,16 +590,158 @@ export default function App() {
     setIsCommandPaletteOpen(false);
   };
 
+  const handleImportBookmarks = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!user) {
+      setNotice({ tone: 'error', message: createMessage('请先登录后再导入。', 'Sign in before importing bookmarks.') });
+      return;
+    }
+
+    setIsImporting(true);
+
+    try {
+      const content = await file.text();
+      const categoryIds = categories.filter((category) => category.id !== 'archive').map((category) => category.id);
+      const parsed = parseBookmarkImportText(file.name, content, categoryIds, newBookmark.categoryId);
+      const existingFingerprints = new Set(allBookmarks.map((bookmark) => createBookmarkFingerprint(bookmark)));
+      const importedFingerprints = new Set<string>();
+      let duplicateCount = 0;
+
+      const candidates = parsed.bookmarks.filter((bookmark) => {
+        if (!canImportBookmarkUrl(bookmark.url)) {
+          return false;
+        }
+
+        const fingerprint = createBookmarkFingerprint(bookmark);
+        if (!fingerprint || existingFingerprints.has(fingerprint) || importedFingerprints.has(fingerprint)) {
+          duplicateCount += 1;
+          return false;
+        }
+
+        importedFingerprints.add(fingerprint);
+        return true;
+      });
+
+      if (candidates.length === 0) {
+        setNotice({
+          tone: parsed.invalidCount > 0 || duplicateCount > 0 ? 'error' : 'success',
+          message: createMessage(
+            `没有可导入的新书签。重复 ${duplicateCount} 个，无效 ${parsed.invalidCount} 个。`,
+            `No new bookmarks to import. ${duplicateCount} duplicates, ${parsed.invalidCount} invalid.`,
+          ),
+        });
+        return;
+      }
+
+      for (let start = 0; start < candidates.length; start += 400) {
+        const batch = writeBatch(db);
+        for (const candidate of candidates.slice(start, start + 400)) {
+          const bookmarkRef = doc(collection(db, `users/${user.uid}/bookmarks`));
+          const bookmark = normalizeBookmark({
+            id: bookmarkRef.id,
+            title: candidate.title,
+            url: candidate.url,
+            description: candidate.description,
+            tag: candidate.tag,
+            categoryId: candidate.categoryId,
+            isFavorite: candidate.isFavorite,
+            isArchived: candidate.isArchived,
+          });
+
+          batch.set(bookmarkRef, {
+            ...buildBookmarkDocument(bookmark, user.uid),
+            createdAt: serverTimestamp(),
+          });
+        }
+
+        await batch.commit();
+      }
+
+      setSyncError(null);
+      setLastSyncAt(Date.now());
+      setNotice({
+        tone: 'success',
+        message: createMessage(
+          `已导入 ${candidates.length} 个书签，跳过重复 ${duplicateCount} 个，无效 ${parsed.invalidCount} 个。`,
+          `Imported ${candidates.length} bookmarks, skipped ${duplicateCount} duplicates and ${parsed.invalidCount} invalid entries.`,
+        ),
+      });
+    } catch (error) {
+      console.error('Failed to import bookmarks', error);
+      setNotice({
+        tone: 'error',
+        message: createMessage(
+          '导入失败。请使用浏览器导出的 HTML 书签文件，或 JSON / CSV。',
+          'Import failed. Use a browser-exported HTML bookmark file, JSON, or CSV.',
+        ),
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleExportBookmarks = () => {
+    if (allBookmarks.length === 0) {
+      setNotice({ tone: 'error', message: createMessage('当前还没有书签可以导出。', 'There are no bookmarks to export yet.') });
+      return;
+    }
+
+    const blob = new Blob([buildBookmarkExportJson(allBookmarks)], { type: 'application/json;charset=utf-8' });
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `lumina-bookmarks-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(downloadUrl);
+
+    setNotice({ tone: 'success', message: createMessage('已导出当前书签备份。', 'Exported the current bookmark backup.') });
+  };
+
   const handleAddBookmark = async (event?: React.FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
-    if (!newBookmark.title.trim() || !newBookmark.url.trim() || !newBookmark.categoryId) return;
-    if (!user) return;
+    if (!newBookmark.title.trim() || !newBookmark.url.trim() || !newBookmark.categoryId) {
+      setNotice({ tone: 'error', message: createMessage('请先填写标题、链接和分类。', 'Fill in the title, URL, and category first.') });
+      return;
+    }
+    if (!user) {
+      setNotice({ tone: 'error', message: createMessage('请先登录后再添加书签。', 'Sign in before adding bookmarks.') });
+      return;
+    }
+    if (!canImportBookmarkUrl(newBookmark.url)) {
+      setNotice({
+        tone: 'error',
+        message: createMessage('链接格式不正确，已支持自动补全 https://。', 'The URL is invalid. Missing https:// is handled automatically.'),
+      });
+      return;
+    }
+
+    const normalizedUrl = normalizeBookmarkUrl(newBookmark.url);
+    const fingerprint = createBookmarkFingerprint({
+      title: newBookmark.title,
+      url: normalizedUrl,
+      description: '',
+      tag: '',
+      categoryId: newBookmark.categoryId,
+      isFavorite: false,
+      isArchived: false,
+    });
+
+    if (allBookmarks.some((bookmark) => createBookmarkFingerprint(bookmark) === fingerprint)) {
+      setNotice({ tone: 'error', message: createMessage('这个书签已经存在了。', 'That bookmark already exists.') });
+      return;
+    }
+
+    setIsSavingBookmark(true);
     try {
       const bookmarkRef = doc(collection(db, `users/${user.uid}/bookmarks`));
       const bookmark = normalizeBookmark({
         id: bookmarkRef.id,
         title: newBookmark.title,
-        url: newBookmark.url,
+        url: normalizedUrl,
         description: newBookmark.description,
         tag: newBookmark.tag || 'General',
         categoryId: newBookmark.categoryId,
@@ -504,9 +755,13 @@ export default function App() {
       setIsAddModalOpen(false);
       setSyncError(null);
       setLastSyncAt(Date.now());
+      setNotice({ tone: 'success', message: createMessage('书签已添加。', 'Bookmark added.') });
     } catch (error) {
       console.error('Failed to add bookmark', error);
+      setNotice({ tone: 'error', message: createMessage('添加失败，请稍后重试。', 'Add failed. Please try again.') });
       setSyncError(lang === 'zh' ? '书签创建失败' : 'Failed to create bookmark');
+    } finally {
+      setIsSavingBookmark(false);
     }
   };
 
@@ -889,15 +1144,61 @@ export default function App() {
                     </select>
                   </label>
                 </div>
+                <div className="mt-5 rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4">
+                  <input
+                    accept=".html,.htm,.json,.csv"
+                    className="hidden"
+                    onChange={handleImportBookmarks}
+                    ref={importInputRef}
+                    type="file"
+                  />
+                  <p className="label-meta">{createMessage('批量导入', 'Bulk Import')}</p>
+                  <p className="mt-2 text-sm leading-6 text-on-surface/58">
+                    {createMessage(
+                      '支持浏览器导出的 HTML 书签文件，也支持 JSON / CSV。系统会自动补全 https:// 并跳过重复项。',
+                      'Supports browser-exported HTML bookmark files plus JSON / CSV. URLs are normalized and duplicates are skipped automatically.',
+                    )}
+                  </p>
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                    <button className="ghost-button justify-center sm:flex-1" disabled={isImporting} onClick={() => importInputRef.current?.click()} type="button">
+                      {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                      {isImporting ? createMessage('导入中...', 'Importing...') : createMessage('导入文件', 'Import File')}
+                    </button>
+                    <button className="ghost-button justify-center sm:flex-1" onClick={handleExportBookmarks} type="button">
+                      <ExternalLink className="h-4 w-4" />
+                      {createMessage('导出备份', 'Export Backup')}
+                    </button>
+                  </div>
+                </div>
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
                   <button className="ghost-button justify-center" onClick={() => setIsAddModalOpen(false)} type="button">{t.cancel}</button>
-                  <button className="primary-button justify-center" disabled={!newBookmark.title.trim() || !newBookmark.url.trim()} type="submit">
-                    <Plus className="h-4 w-4" />
-                    {t.submit}
+                  <button className="primary-button justify-center" disabled={isSavingBookmark || !newBookmark.title.trim() || !newBookmark.url.trim()} type="submit">
+                    {isSavingBookmark ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    {isSavingBookmark ? createMessage('保存中...', 'Saving...') : t.submit}
                   </button>
                 </div>
               </motion.form>
             </div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {notice && (
+            <motion.div
+              animate={{ opacity: 1, y: 0 }}
+              className={`fixed bottom-24 right-4 z-[130] w-[min(calc(100vw-2rem),28rem)] rounded-[1.5rem] border px-4 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.25)] xl:bottom-6 ${
+                notice.tone === 'error'
+                  ? 'border-red-400/25 bg-red-500/12 text-red-50'
+                  : 'border-emerald-400/25 bg-emerald-500/12 text-on-surface'
+              }`}
+              exit={{ opacity: 0, y: 12 }}
+              initial={{ opacity: 0, y: 12 }}
+            >
+              <div className="flex items-start gap-3">
+                <div className={`mt-1 h-2.5 w-2.5 rounded-full ${notice.tone === 'error' ? 'bg-red-300' : 'bg-emerald-300'}`} />
+                <p className="text-sm leading-6">{notice.message}</p>
+              </div>
+            </motion.div>
           )}
         </AnimatePresence>
 
@@ -977,6 +1278,11 @@ export default function App() {
           </header>
 
           <main className="px-4 pb-40 pt-6 sm:px-6 sm:pb-36 lg:px-8 lg:pb-10">
+            {syncError && (
+              <div className="mb-4 rounded-[1.5rem] border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
+                {syncError}
+              </div>
+            )}
             {activeTab === 'dashboard' && (
               <div className="space-y-8">
                 <section className="grid gap-6 xl:grid-cols-[minmax(0,1.38fr)_308px] 2xl:grid-cols-[minmax(0,1.45fr)_320px]">
@@ -1005,7 +1311,7 @@ export default function App() {
                 <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{stats.map((stat) => <MetricCard key={stat.label} {...stat} />)}</section>
                 <section className="space-y-4">
                   <div className="section-header"><div><span className="label-meta">{t.featured}</span><h2 className="section-title">{t.pinned}</h2></div><button className="text-link" onClick={() => goToTab('favorites')} type="button">{t.viewAll}</button></div>
-                  <BookmarkSection addLabel={t.addBookmark} bookmarks={[...favoriteBookmarks, ...nonArchivedBookmarks].slice(0, 4)} emptyBody={t.noBookmarksDesc} emptyTitle={t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onFavorite={toggleFavorite} viewMode="grid" />
+                  <BookmarkSection addLabel={t.addBookmark} bookmarks={featuredBookmarks} emptyBody={t.noBookmarksDesc} emptyTitle={t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onDelete={deleteBookmark} onFavorite={toggleFavorite} viewMode="grid" />
                 </section>
                 <section className="space-y-4">
                   <div className="section-header"><div><span className="label-meta">{t.sectionCategory}</span><h2 className="section-title">{t.collections}</h2></div></div>
@@ -1013,13 +1319,13 @@ export default function App() {
                 </section>
                 <section className="space-y-4">
                   <div className="section-header"><div><span className="label-meta">{t.preview}</span><h2 className="section-title">{t.recentBookmarks}</h2></div><ViewSwitch gridLabel={t.grid} listLabel={t.list} onChange={setViewMode} viewMode={viewMode} /></div>
-                  <BookmarkSection addLabel={t.addBookmark} bookmarks={displayedBookmarks.slice(0, 9)} emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc} emptyTitle={queryText ? t.noResults : t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onFavorite={toggleFavorite} viewMode={viewMode} />
+                  <BookmarkSection addLabel={t.addBookmark} bookmarks={displayedBookmarks.slice(0, 9)} emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc} emptyTitle={queryText ? t.noResults : t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onDelete={deleteBookmark} onFavorite={toggleFavorite} viewMode={viewMode} />
                 </section>
               </div>
             )}
 
-            {activeTab === 'favorites' && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.favorites}</span><h1 className="section-title">{t.favorites}</h1></div><ViewSwitch gridLabel={t.grid} listLabel={t.list} onChange={setViewMode} viewMode={viewMode} /></div><BookmarkSection addLabel={t.addBookmark} bookmarks={displayedBookmarks} emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc} emptyTitle={queryText ? t.noResults : t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onFavorite={toggleFavorite} viewMode={viewMode} /></div>}
-            {activeTab === 'archive' && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.archive}</span><h1 className="section-title">{t.archive}</h1><p className="mt-3 text-sm text-on-surface/58">{t.archiveDesc}</p></div>{archivedBookmarks.length > 0 && <button className="danger-button" onClick={() => void Promise.all(archivedBookmarks.map((bookmark) => deleteBookmark(bookmark)))} type="button"><Trash2 className="h-4 w-4" />{t.deleteAll}</button>}</div>{archivedBookmarks.length === 0 ? <div className="panel-surface flex min-h-[260px] flex-col items-center justify-center text-center"><Archive className="mb-4 h-12 w-12 text-on-surface/24" /><h3 className="text-xl font-bold">{t.emptyArchive}</h3><p className="mt-2 max-w-md text-sm text-on-surface/58">{t.archiveDesc}</p></div> : <ArchiveGrid bookmarks={archivedBookmarks} lang={lang} onDelete={deleteBookmark} onRestore={toggleArchive} />}</div>}
+            {activeTab === 'favorites' && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.favorites}</span><h1 className="section-title">{t.favorites}</h1></div><ViewSwitch gridLabel={t.grid} listLabel={t.list} onChange={setViewMode} viewMode={viewMode} /></div><BookmarkSection addLabel={t.addBookmark} bookmarks={displayedBookmarks} emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc} emptyTitle={queryText ? t.noResults : t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onDelete={deleteBookmark} onFavorite={toggleFavorite} viewMode={viewMode} /></div>}
+            {activeTab === 'archive' && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.archive}</span><h1 className="section-title">{t.archive}</h1><p className="mt-3 text-sm text-on-surface/58">{t.archiveDesc}</p></div>{archivedBookmarks.length > 0 && <button className="danger-button" onClick={() => void handleDeleteArchivedAll()} type="button"><Trash2 className="h-4 w-4" />{t.deleteAll}</button>}</div>{archivedBookmarks.length === 0 ? <div className="panel-surface flex min-h-[260px] flex-col items-center justify-center text-center"><Archive className="mb-4 h-12 w-12 text-on-surface/24" /><h3 className="text-xl font-bold">{t.emptyArchive}</h3><p className="mt-2 max-w-md text-sm text-on-surface/58">{t.archiveDesc}</p></div> : <ArchiveGrid bookmarks={archivedBookmarks} lang={lang} onDelete={deleteBookmark} onRestore={toggleArchive} />}</div>}
             {activeTab === 'personal' && <div className="space-y-8"><section className="hero-panel relative overflow-hidden px-6 py-8 sm:px-8"><img alt="" className="absolute inset-0 h-full w-full object-cover opacity-28" referrerPolicy="no-referrer" src={wallpaper || 'https://picsum.photos/seed/lumina-profile/1600/900'} /><div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" /><div className="relative z-10 flex flex-col gap-6 sm:flex-row sm:items-end"><div className="h-24 w-24 overflow-hidden rounded-[1.75rem] border border-white/14 bg-white/6 shadow-[0_18px_40px_rgba(0,0,0,0.25)]">{user?.photoURL ? <img alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" src={user.photoURL} /> : <div className="flex h-full w-full items-center justify-center"><UserIcon className="h-10 w-10 text-on-surface/58" /></div>}</div><div className="min-w-0 flex-1"><span className="label-meta text-primary">{t.personalSpace}</span><h1 className="mt-3 font-headline text-4xl font-black tracking-tight">{user?.displayName || t.guest}</h1><p className="mt-3 max-w-2xl text-sm leading-7 text-on-surface/64">{user ? t.personalDesc : t.guestDesc}</p></div></div></section><section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{stats.map((stat) => <MetricCard key={stat.label} {...stat} />)}</section><section className="space-y-4"><div className="section-header"><div><span className="label-meta">{t.preview}</span><h2 className="section-title">{t.yourCollections}</h2></div><button className="primary-button" onClick={openAddModal} type="button"><Plus className="h-4 w-4" />{t.addBookmark}</button></div><div className="grid gap-5 md:grid-cols-2">{categories.filter((category) => category.id === 'work' || category.id === 'personal').map((category) => <CategoryCard category={category} key={category.id} lang={lang} onOpen={() => goToTab(category.id)} />)}</div></section></div>}
             {activeTab === 'settings' && (
               <div className="space-y-4 sm:space-y-5">
@@ -1160,7 +1466,7 @@ export default function App() {
                 </div>
               </div>
             )}
-            {activeCategory && !['dashboard', 'favorites', 'archive', 'personal', 'settings'].includes(activeTab) && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.sectionCategory}</span><h1 className="section-title">{resolveCategoryTitle(activeCategory, lang)}</h1><p className="mt-3 text-sm text-on-surface/58">{resolveCategorySubtitle(activeCategory, lang)}</p></div><ViewSwitch gridLabel={t.grid} listLabel={t.list} onChange={setViewMode} viewMode={viewMode} /></div><BookmarkSection addLabel={t.addBookmark} bookmarks={displayedBookmarks} emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc} emptyTitle={queryText ? t.noResults : t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onFavorite={toggleFavorite} viewMode={viewMode} /></div>}
+            {activeCategory && !['dashboard', 'favorites', 'archive', 'personal', 'settings'].includes(activeTab) && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.sectionCategory}</span><h1 className="section-title">{resolveCategoryTitle(activeCategory, lang)}</h1><p className="mt-3 text-sm text-on-surface/58">{resolveCategorySubtitle(activeCategory, lang)}</p></div><ViewSwitch gridLabel={t.grid} listLabel={t.list} onChange={setViewMode} viewMode={viewMode} /></div><BookmarkSection addLabel={t.addBookmark} bookmarks={displayedBookmarks} emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc} emptyTitle={queryText ? t.noResults : t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onDelete={deleteBookmark} onFavorite={toggleFavorite} viewMode={viewMode} /></div>}
           </main>
           </div>
         </div>
