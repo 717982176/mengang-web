@@ -652,7 +652,7 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        <aside className="desktop-sidebar hidden xl:flex">
+        <aside className="desktop-sidebar hidden xl:flex xl:flex-col xl:justify-between">
           <div>
             <div className="mb-12 px-3">
               <div className="mb-3 flex items-center gap-3">
@@ -694,10 +694,10 @@ export default function App() {
           </div>
         </aside>
 
-        <div className="xl:pl-[15.75rem]">
+        <div className="xl:pl-[16rem]">
           <div className="content-wrap">
-          <header className="sticky top-0 z-40 px-4 pb-2 pt-4 sm:px-6 lg:px-8">
-            <div className="header-glass flex items-center gap-3 rounded-[1.8rem] px-4 py-3 sm:px-5">
+          <header className="sticky top-0 z-40 px-4 pt-4 sm:px-6 lg:px-8">
+            <div className="curator-glass flex items-center gap-3 rounded-[1.8rem] px-4 py-3 sm:px-5">
               <button className="icon-button xl:hidden" onClick={() => setIsMobileMenuOpen(true)} type="button"><Menu className="h-4 w-4" /></button>
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface/42" />
@@ -728,7 +728,7 @@ export default function App() {
             </div>
           </header>
 
-          <main className="px-4 pb-40 pt-8 sm:px-6 sm:pb-36 sm:pt-9 lg:px-8 lg:pb-10 lg:pt-10">
+          <main className="px-4 pb-40 pt-6 sm:px-6 sm:pb-36 lg:px-8 lg:pb-10">
             {activeTab === 'dashboard' && (
               <div className="space-y-8">
                 <section className="grid gap-6 xl:grid-cols-[minmax(0,1.38fr)_308px] 2xl:grid-cols-[minmax(0,1.45fr)_320px]">
@@ -781,26 +781,23 @@ export default function App() {
                 </div>
                 <div className="grid gap-5 xl:grid-cols-[minmax(0,1.04fr)_332px] 2xl:grid-cols-[minmax(0,1.1fr)_356px]">
                   <div className="space-y-5">
-                    <div className="panel-surface p-5 sm:p-6">
+                    <div className="panel-surface p-4 sm:p-5">
                       <div className="mb-5">
                         <span className="label-meta">{t.interfaceQuickActions}</span>
                         <h2 className="mt-2 text-2xl font-headline font-extrabold tracking-tight">{t.interfaceQuickActions}</h2>
                         <p className="mt-2 text-sm text-on-surface/58">{t.interfaceQuickActionsDesc}</p>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
-                        <button className="quick-toggle-tile" onClick={toggleTheme} type="button">
-                          <span className="quick-toggle-icon">
-                            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                          </span>
-                          <span className="quick-toggle-title">THEME</span>
-                          <span className="quick-toggle-meta">{t.switchThemeDesc}</span>
+                        <button className="ghost-button h-14 w-full justify-center rounded-[1.35rem] px-3" onClick={toggleTheme} type="button">
+                          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                          <span className="text-[11px] font-bold uppercase tracking-[0.18em]">THEME</span>
                         </button>
-                        <button className="quick-toggle-tile" onClick={toggleLang} type="button">
-                          <span className="quick-toggle-icon">
+                        <button className="ghost-button h-14 w-full justify-between rounded-[1.35rem] px-4" onClick={toggleLang} type="button">
+                          <span className="inline-flex items-center gap-2">
                             <Languages className="h-4 w-4" />
+                            <span className="text-[11px] font-bold uppercase tracking-[0.18em]">LANG</span>
                           </span>
-                          <span className="quick-toggle-title">LANG</span>
-                          <span className="quick-toggle-value">{currentLanguageCode}</span>
+                          <span className="text-sm font-semibold text-primary">{currentLanguageCode}</span>
                         </button>
                       </div>
                     </div>
