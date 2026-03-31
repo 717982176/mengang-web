@@ -7,6 +7,7 @@ import React, { useState, useEffect, Component, ReactNode } from 'react';
 import { 
   LayoutGrid, 
   Star, 
+  Heart,
   Briefcase, 
   User as UserIcon, 
   Archive, 
@@ -247,6 +248,30 @@ interface Category {
 
 const CATEGORIES: Category[] = [
   {
+    id: 'work',
+    title: '工作',
+    subtitle: 'Professional Resources',
+    icon: <Briefcase className="w-6 h-6" />,
+    color: 'blue',
+    bookmarks: []
+  },
+  {
+    id: 'personal',
+    title: '个人',
+    subtitle: 'Personal Collection',
+    icon: <UserIcon className="w-6 h-6" />,
+    color: 'purple',
+    bookmarks: []
+  },
+  {
+    id: 'archive',
+    title: '归档',
+    subtitle: 'Archived Items',
+    icon: <Archive className="w-6 h-6" />,
+    color: 'gray',
+    bookmarks: []
+  },
+  {
     id: 'anime',
     title: '在线动漫',
     subtitle: 'Premium Streaming & Libraries',
@@ -353,10 +378,10 @@ const CATEGORIES: Category[] = [
 
 // --- Components ---
 
-const SidebarItem = ({ icon: Icon, label, active = false }: { icon: any, label: string, active?: boolean }) => (
-  <a 
-    href="#" 
-    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group ${
+const SidebarItem = ({ icon: Icon, label, active = false, onClick }: { icon: any, label: string, active?: boolean, onClick?: () => void }) => (
+  <button 
+    onClick={onClick}
+    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group ${
       active 
         ? 'bg-white text-primary shadow-sm font-semibold' 
         : 'text-outline hover:text-on-surface hover:bg-surface-container-low'
@@ -364,7 +389,7 @@ const SidebarItem = ({ icon: Icon, label, active = false }: { icon: any, label: 
   >
     <Icon className={`w-5 h-5 ${active ? 'fill-current' : ''}`} />
     <span className="font-headline text-sm tracking-tight">{label}</span>
-  </a>
+  </button>
 );
 
 const CategoryCard = ({ category }: { category: Category, key?: string }) => {
@@ -386,52 +411,62 @@ const CategoryCard = ({ category }: { category: Category, key?: string }) => {
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`bg-surface-container-lowest rounded-radius-xl p-8 cloud-shadow border border-transparent hover:border-primary/10 transition-all duration-300 ${
+      className={`bg-surface-container-lowest rounded-radius-xl p-6 sm:p-8 cloud-shadow border border-transparent hover:border-primary/10 transition-all duration-300 ${
         category.isLarge ? 'md:col-span-2' : 'col-span-1'
       }`}
     >
       <div className="flex justify-between items-start mb-6">
         <div className="flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colorClasses[category.color]}`}>
+          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center ${colorClasses[category.color]}`}>
             {category.icon}
           </div>
           <div>
-            <h3 className="text-xl font-headline font-extrabold tracking-tight">{category.title}</h3>
-            <p className="text-xs text-outline font-medium">{category.subtitle}</p>
+            <h3 className="text-lg sm:text-xl font-headline font-extrabold tracking-tight">{category.title}</h3>
+            <p className="text-[10px] text-outline font-medium">{category.subtitle}</p>
           </div>
         </div>
         {category.color !== 'gray' && (
-          <span className={`px-3 py-1 text-[10px] font-bold rounded-full tracking-widest uppercase ${tagClasses[category.color]}`}>
+          <span className={`px-3 py-1 text-[9px] font-bold rounded-full tracking-widest uppercase ${tagClasses[category.color]}`}>
             {category.color.toUpperCase()}
           </span>
         )}
       </div>
 
-      <div className={`grid gap-4 ${category.isLarge ? 'sm:grid-cols-2' : 'grid-cols-1'}`}>
-        {category.bookmarks.map((bookmark) => (
-          <a 
+      <div className={`grid gap-3 sm:gap-4 ${category.isLarge ? 'sm:grid-cols-2' : 'grid-cols-1'}`}>
+        {category.bookmarks.map((bookmark: any) => (
+          <div 
             key={bookmark.id}
-            href={bookmark.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-4 rounded-xl bg-surface-container-low flex items-center gap-4 hover:bg-surface-bright hover:shadow-sm border border-transparent hover:border-outline-variant/20 transition-all group"
+            className="p-3 sm:p-4 rounded-xl bg-surface-container-low flex items-center gap-3 sm:gap-4 hover:bg-surface-bright hover:shadow-sm border border-transparent hover:border-outline-variant/20 transition-all group relative"
           >
-            <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 shadow-sm">
-              <img src={bookmark.icon} alt={bookmark.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{bookmark.title}</p>
-                {bookmark.tag && (
-                  <span className="px-1.5 py-0.5 bg-primary-fixed text-[9px] font-black rounded text-on-primary-fixed-variant">
-                    {bookmark.tag}
-                  </span>
-                )}
+            <a 
+              href={bookmark.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 flex items-center gap-3 sm:gap-4 min-w-0"
+            >
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg overflow-hidden flex-shrink-0 shadow-sm">
+                <img src={bookmark.icon} alt={bookmark.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               </div>
-              <p className="text-[10px] text-outline truncate">{bookmark.description}</p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs sm:text-sm font-bold truncate group-hover:text-primary transition-colors">{bookmark.title}</p>
+                </div>
+                <p className="text-[9px] sm:text-[10px] text-outline truncate">{bookmark.description}</p>
+              </div>
+            </a>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={(e) => {
+                  e.preventDefault();
+                  bookmark.onFavorite?.();
+                }}
+                className={`p-1.5 rounded-lg transition-colors ${bookmark.isFavorite ? 'text-primary bg-primary/10' : 'text-outline hover:text-primary hover:bg-primary/5'}`}
+              >
+                <Star className={`w-3.5 h-3.5 ${bookmark.isFavorite ? 'fill-current' : ''}`} />
+              </button>
+              <ExternalLink className="w-3 h-3 text-outline opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-            <ExternalLink className="w-3 h-3 text-outline opacity-0 group-hover:opacity-100 transition-opacity" />
-          </a>
+          </div>
         ))}
       </div>
     </motion.div>
@@ -444,6 +479,8 @@ export default function App() {
   const [lang, setLang] = useState<'en' | 'zh'>('zh');
   const [isMac, setIsMac] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  
+  const [activeTab, setActiveTab] = useState('dashboard');
   
   // Firebase State
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -480,11 +517,14 @@ export default function App() {
 
             // Bootstrap default categories
             const defaultCats = [
-              { id: 'anime', title: '在线动漫', subtitle: 'Premium Streaming', icon: 'Play', order: 1, color: 'blue' },
-              { id: 'illustration', title: '插画与图站', subtitle: 'Visual Inspiration', icon: 'Palette', order: 2, color: 'purple' },
-              { id: 'search', title: '搜图与识别', subtitle: 'Image Search', icon: 'ImageIcon', order: 3, color: 'green' },
-              { id: 'community', title: 'ACG 社区', subtitle: 'Forums', icon: 'MessageSquare', order: 4, color: 'gray' },
-              { id: 'tools', title: '实用工具', subtitle: 'Productivity', icon: 'Wrench', order: 5, color: 'blue' }
+              { id: 'work', title: '工作', subtitle: 'Professional Resources', icon: 'Briefcase', order: 0, color: 'blue' },
+              { id: 'personal', title: '个人', subtitle: 'Personal Collection', icon: 'UserIcon', order: 1, color: 'purple' },
+              { id: 'archive', title: '归档', subtitle: 'Archived Items', icon: 'Archive', order: 2, color: 'gray' },
+              { id: 'anime', title: '在线动漫', subtitle: 'Premium Streaming', icon: 'Play', order: 3, color: 'blue' },
+              { id: 'illustration', title: '插画与图站', subtitle: 'Visual Inspiration', icon: 'Palette', order: 4, color: 'purple' },
+              { id: 'search', title: '搜图与识别', subtitle: 'Image Search', icon: 'ImageIcon', order: 5, color: 'green' },
+              { id: 'community', title: 'ACG 社区', subtitle: 'Forums', icon: 'MessageSquare', order: 6, color: 'gray' },
+              { id: 'tools', title: '实用工具', subtitle: 'Productivity', icon: 'Wrench', order: 7, color: 'blue' }
             ];
 
             for (const cat of defaultCats) {
@@ -534,7 +574,10 @@ export default function App() {
         const combined = cats.map(cat => ({
           ...cat,
           icon: <Play className="w-6 h-6" fill="currentColor" />, // Simplified for now
-          bookmarks: books.filter(b => b.categoryId === cat.id)
+          bookmarks: books.filter(b => b.categoryId === cat.id).map(b => ({
+            ...b,
+            onFavorite: () => toggleFavorite(b.id, b.isFavorite)
+          }))
         }));
         
         setCategories(combined.length > 0 ? combined : CATEGORIES);
@@ -560,6 +603,16 @@ export default function App() {
     return null;
   }).filter(Boolean) as Category[];
 
+  const toggleFavorite = async (bookmarkId: string, currentStatus: boolean) => {
+    if (!user) return signIn();
+    const path = `users/${user.uid}/bookmarks/${bookmarkId}`;
+    try {
+      await setDoc(doc(db, path), { isFavorite: !currentStatus }, { merge: true });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, path);
+    }
+  };
+
   const handleAddBookmark = async () => {
     if (!user) return signIn();
     if (!newBookmark.title || !newBookmark.url || !newBookmark.categoryId) return;
@@ -569,14 +622,298 @@ export default function App() {
       await addDoc(collection(db, path), {
         ...newBookmark,
         uid: user.uid,
-        createdAt: serverTimestamp(),
-        icon: `https://picsum.photos/seed/${newBookmark.title}/64/64`
+        isFavorite: false,
+        createdAt: serverTimestamp()
       });
       setIsAddModalOpen(false);
       setNewBookmark({ title: '', url: '', categoryId: '' });
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, path);
     }
+  };
+
+  const renderContent = () => {
+    if (activeTab === 'settings') {
+      return (
+        <div className="space-y-8 max-w-4xl mx-auto">
+          <div className="flex items-center gap-4 mb-2">
+            <div className="w-12 h-12 rounded-2xl bg-primary-fixed flex items-center justify-center text-primary">
+              <Settings className="w-6 h-6" />
+            </div>
+            <h2 className="text-3xl font-headline font-extrabold">{t.settings}</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-surface-container-lowest rounded-3xl p-8 border border-outline-variant/10 space-y-6 cloud-shadow">
+              <h3 className="text-lg font-headline font-bold mb-4">Appearance</h3>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-bold text-sm">{t.changeTheme}</p>
+                  <p className="text-[10px] text-outline">{t.themeDesc}</p>
+                </div>
+                <button onClick={toggleTheme} className="p-3 bg-surface-container-high rounded-xl hover:bg-primary/10 transition-colors">
+                  {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-bold text-sm">Language / 语言</p>
+                  <p className="text-[10px] text-outline">Switch between English and Chinese</p>
+                </div>
+                <button onClick={toggleLang} className="px-4 py-2 bg-surface-container-high rounded-xl font-bold text-xs hover:bg-primary/10 transition-colors">
+                  {lang.toUpperCase()}
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-surface-container-lowest rounded-3xl p-8 border border-outline-variant/10 space-y-6 cloud-shadow">
+              <h3 className="text-lg font-headline font-bold mb-4">Account</h3>
+              {user ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 p-3 rounded-2xl bg-surface-container-low">
+                    <img src={user.photoURL || ''} className="w-10 h-10 rounded-full" referrerPolicy="no-referrer" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold truncate">{user.displayName}</p>
+                      <p className="text-[10px] text-outline truncate">{user.email}</p>
+                    </div>
+                  </div>
+                  <button onClick={firebaseLogOut} className="w-full py-3 px-4 bg-primary/10 text-primary rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-primary/20 transition-colors">
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-sm text-outline mb-4">You are currently using Lumina as a guest.</p>
+                  <button onClick={signIn} className="w-full py-3 px-4 bg-primary text-white rounded-xl font-bold text-sm hover:scale-[1.02] active:scale-95 transition-all">
+                    Sign In with Google
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (activeTab === 'personal') {
+      if (!user) {
+        return (
+          <div className="text-center py-20 max-w-md mx-auto">
+            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6 text-primary">
+              <UserIcon className="w-10 h-10" />
+            </div>
+            <h3 className="text-2xl font-headline font-extrabold mb-4">Personal Space</h3>
+            <p className="text-sm text-outline mb-8">Sign in to access your personal curator profile, track your productivity, and manage private collections.</p>
+            <button 
+              onClick={signIn}
+              className="w-full py-4 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
+            >
+              Sign In with Google
+            </button>
+          </div>
+        );
+      }
+      return (
+        <div className="space-y-12 max-w-5xl mx-auto">
+          {/* Profile Header */}
+          <section className="relative h-48 sm:h-64 rounded-[2.5rem] overflow-hidden cloud-shadow">
+            <img src="https://picsum.photos/seed/profile/1200/400" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            <div className="absolute inset-0 bg-gradient-to-t from-on-surface/80 to-transparent"></div>
+            <div className="absolute bottom-8 left-8 right-8 flex items-end gap-6">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 border-surface overflow-hidden shadow-2xl">
+                <img src={user.photoURL || ''} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              </div>
+              <div className="flex-1 pb-2">
+                <h2 className="text-2xl sm:text-4xl font-headline font-extrabold text-white tracking-tight">{user.displayName}</h2>
+                <p className="text-white/60 text-xs sm:text-sm font-medium uppercase tracking-widest">{t.curatorPro}</p>
+              </div>
+            </div>
+          </section>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+            {[
+              { label: t.bookmarks, value: categories.reduce((acc, c) => acc + c.bookmarks.length, 0), icon: Star, color: 'text-primary' },
+              { label: t.categories, value: categories.length, icon: LayoutGrid, color: 'text-secondary' },
+              { label: 'Favorites', value: categories.flatMap(c => c.bookmarks).filter(b => (b as any).isFavorite).length, icon: Heart, color: 'text-red-500' },
+              { label: 'Active Days', value: 12, icon: Zap, color: 'text-orange-500' }
+            ].map((stat, i) => (
+              <div key={i} className="bg-surface-container-lowest p-6 rounded-3xl border border-outline-variant/10 cloud-shadow text-center">
+                <stat.icon className={`w-6 h-6 mx-auto mb-3 ${stat.color}`} />
+                <p className="text-2xl font-headline font-extrabold">{stat.value}</p>
+                <p className="text-[10px] font-bold text-outline uppercase tracking-widest mt-1">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Personal Categories */}
+          <section>
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-2xl font-headline font-extrabold tracking-tight">Personal Categories</h3>
+              <button onClick={() => setIsAddModalOpen(true)} className="text-sm font-bold text-primary hover:underline">Add New</button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {categories.filter(c => c.id === 'personal' || c.id === 'work').map(category => (
+                <CategoryCard key={category.id} category={category} />
+              ))}
+            </div>
+          </section>
+        </div>
+      );
+    }
+
+    let displayCategories = filteredCategories;
+    
+    if (activeTab === 'favorites') {
+      const favoriteBookmarks = categories.flatMap(c => c.bookmarks).filter(b => (b as any).isFavorite);
+      if (favoriteBookmarks.length === 0) {
+        return (
+          <div className="text-center py-20">
+            <Star className="w-16 h-16 text-outline/20 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-outline">{t.favorites} is empty</h3>
+            <p className="text-sm text-outline/60">Star your favorite bookmarks to see them here.</p>
+          </div>
+        );
+      }
+      displayCategories = [{
+        id: 'favorites',
+        title: t.favorites,
+        subtitle: 'Your starred collection',
+        icon: <Star className="w-6 h-6" />,
+        color: 'purple',
+        bookmarks: favoriteBookmarks,
+        isLarge: true
+      }];
+    } else if (['work', 'personal', 'archive'].includes(activeTab)) {
+      // For now, filter categories that might match or show empty
+      const matchedCategories = categories.filter(c => c.id === activeTab || c.title.toLowerCase().includes(activeTab));
+      if (matchedCategories.length === 0) {
+        return (
+          <div className="text-center py-20">
+            <Archive className="w-16 h-16 text-outline/20 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-outline">No items in {t[activeTab as keyof typeof t]}</h3>
+            <p className="text-sm text-outline/60">Categorize your bookmarks to organize your workspace.</p>
+          </div>
+        );
+      }
+      displayCategories = matchedCategories;
+    }
+
+    return (
+      <div className="space-y-12 lg:space-y-16">
+        {activeTab === 'dashboard' && (
+          <>
+            {/* Hero Section */}
+            <section className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+              <motion.div 
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="space-y-2"
+              >
+                <p className="text-[10px] font-bold text-outline uppercase tracking-[0.3em]">{t.welcome}</p>
+                <h2 className="text-3xl sm:text-5xl lg:text-6xl font-headline font-extrabold tracking-tighter text-on-surface">
+                  {t.hello}, <span className="text-primary italic">{user?.displayName?.split(' ')[0] || 'Curator'}</span>.
+                </h2>
+              </motion.div>
+
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="flex gap-3 sm:gap-4 w-full md:w-auto"
+              >
+                <div className="bg-surface-container-lowest px-4 sm:px-8 py-3 sm:py-5 rounded-2xl cloud-shadow border border-outline-variant/10 flex-1 text-center sm:text-left">
+                  <p className="text-xl sm:text-3xl font-headline font-extrabold text-primary">{categories.length.toString().padStart(2, '0')}</p>
+                  <p className="text-[9px] sm:text-[10px] font-bold text-outline uppercase tracking-widest mt-1">{t.categories}</p>
+                </div>
+                <div className="bg-surface-container-lowest px-4 sm:px-8 py-3 sm:py-5 rounded-2xl cloud-shadow border border-outline-variant/10 flex-1 text-center sm:text-left">
+                  <p className="text-xl sm:text-3xl font-headline font-extrabold text-primary">{categories.reduce((acc, c) => acc + c.bookmarks.length, 0).toString().padStart(2, '0')}</p>
+                  <p className="text-[9px] sm:text-[10px] font-bold text-outline uppercase tracking-widest mt-1">{t.bookmarks}</p>
+                </div>
+              </motion.div>
+            </section>
+
+            {/* Featured / Bento Grid */}
+            <section className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Featured Card */}
+              <motion.div 
+                whileHover={{ y: -4 }}
+                className="md:col-span-2 relative overflow-hidden rounded-radius-xl bg-slate-900 h-[280px] sm:h-[320px] cloud-shadow group"
+              >
+                <img 
+                  src="https://picsum.photos/seed/abstract/1200/600" 
+                  alt="Featured" 
+                  className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>
+                <div className="absolute bottom-0 left-0 p-6 sm:p-10 max-w-lg">
+                  <span className="inline-block px-3 py-1 rounded-md bg-white/10 backdrop-blur-md text-white text-[10px] font-bold tracking-widest uppercase mb-4">{t.featured}</span>
+                  <h3 className="text-2xl sm:text-3xl font-headline font-extrabold text-white mb-4 tracking-tight">{t.mastering}</h3>
+                  <p className="text-slate-300 mb-6 text-xs sm:text-sm leading-relaxed hidden sm:block">A hand-picked selection of 24 tools for high-fidelity vector art and digital painting.</p>
+                  <button className="px-6 py-2.5 bg-white text-slate-900 rounded-full text-sm font-bold flex items-center gap-2 hover:bg-primary hover:text-white transition-all">
+                    {t.explore}
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </motion.div>
+
+              {/* Smart History / Daily Tip */}
+              <div className="flex flex-col gap-8">
+                <motion.div 
+                  whileHover={{ y: -4 }}
+                  className="flex-1 bg-secondary rounded-radius-xl p-6 sm:p-8 text-white relative overflow-hidden cloud-shadow group"
+                >
+                  <Zap className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 group-hover:rotate-12 transition-transform duration-500" />
+                  <h4 className="text-xl font-headline font-extrabold mb-2">{t.smartHistory}</h4>
+                  <p className="text-secondary-fixed text-sm opacity-80 leading-relaxed">{t.historyDesc}</p>
+                  <div className="mt-6 flex -space-x-2">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="w-10 h-10 rounded-full border-2 border-secondary bg-white/20 backdrop-blur-md flex items-center justify-center">
+                        <History className="w-4 h-4 text-white" />
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+
+                <motion.div 
+                  whileHover={{ y: -4 }}
+                  className="flex-1 bg-surface-container-lowest rounded-radius-xl p-6 sm:p-8 border border-outline-variant/10 cloud-shadow flex flex-col justify-center"
+                >
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-12 h-12 rounded-2xl bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed">
+                      <Command className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="font-headline font-extrabold text-on-surface">{t.dailyTip}</h4>
+                      <p className="text-[10px] text-outline font-bold uppercase tracking-widest">{t.productivity}</p>
+                    </div>
+                  </div>
+                  <p className="text-on-surface-variant text-sm italic leading-relaxed">"{t.tipDesc.replace('⌘', isMac ? '⌘' : 'Ctrl')}"</p>
+                </motion.div>
+              </div>
+            </section>
+          </>
+        )}
+
+        {/* Categories Grid */}
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {displayCategories.map(category => (
+            <CategoryCard 
+              key={category.id} 
+              category={{
+                ...category,
+                title: (t as any)[category.id] || category.title,
+                bookmarks: category.bookmarks.map(b => ({
+                  ...b,
+                  onFavorite: () => toggleFavorite(b.id, (b as any).isFavorite)
+                }))
+              }} 
+            />
+          ))}
+        </section>
+      </div>
+    );
   };
 
   // Handle keyboard shortcuts
@@ -596,7 +933,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className={`flex min-h-screen bg-surface transition-colors duration-300 ${isDarkMode ? 'dark' : ''}`}>
+      <div className={`flex min-h-screen bg-surface transition-colors duration-300 pb-24 lg:pb-0 ${isDarkMode ? 'dark' : ''}`}>
         {/* --- Add Bookmark Modal --- */}
         <AnimatePresence>
           {isAddModalOpen && (
@@ -770,11 +1107,11 @@ export default function App() {
         </div>
 
         <nav className="flex-1 space-y-1">
-          <SidebarItem icon={LayoutGrid} label={t.dashboard} active />
-          <SidebarItem icon={Star} label={t.favorites} />
-          <SidebarItem icon={Briefcase} label={t.work} />
-          <SidebarItem icon={UserIcon} label={t.personal} />
-          <SidebarItem icon={Archive} label={t.archive} />
+          <SidebarItem icon={LayoutGrid} label={t.dashboard} active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
+          <SidebarItem icon={Star} label={t.favorites} active={activeTab === 'favorites'} onClick={() => setActiveTab('favorites')} />
+          <SidebarItem icon={Briefcase} label={t.work} active={activeTab === 'work'} onClick={() => setActiveTab('work')} />
+          <SidebarItem icon={UserIcon} label={t.personal} active={activeTab === 'personal'} onClick={() => setActiveTab('personal')} />
+          <SidebarItem icon={Archive} label={t.archive} active={activeTab === 'archive'} onClick={() => setActiveTab('archive')} />
         </nav>
 
         <div className="mt-auto space-y-4">
@@ -786,7 +1123,7 @@ export default function App() {
             {t.addBookmark}
           </button>
           
-          <SidebarItem icon={Settings} label={t.settings} />
+          <SidebarItem icon={Settings} label={t.settings} active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
           
           <div className="pt-4 border-t border-outline-variant/20 flex items-center gap-3 px-2">
             <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-sm bg-surface-container-high">
@@ -833,7 +1170,7 @@ export default function App() {
               <div className="w-full h-12 pl-12 pr-4 bg-surface-container-highest/50 border-none rounded-xl flex items-center text-outline/60 text-sm font-sans">
                 {t.searchPlaceholder}
               </div>
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-1.5">
                 <kbd className="px-2 py-1 rounded bg-surface text-[10px] font-bold text-outline border border-outline-variant/20 shadow-sm">{isMac ? '⌘' : 'Ctrl'}</kbd>
                 <kbd className="px-2 py-1 rounded bg-surface text-[10px] font-bold text-outline border border-outline-variant/20 shadow-sm">K</kbd>
               </div>
@@ -884,109 +1221,8 @@ export default function App() {
         </header>
 
         {/* Content Canvas */}
-        <div className="p-6 sm:p-8 lg:p-12 max-w-7xl mx-auto w-full space-y-12 lg:space-y-16 pb-32 lg:pb-12">
-          {/* Hero Section */}
-          <section className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-            <motion.div 
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="space-y-2"
-            >
-              <p className="text-[10px] font-bold text-outline uppercase tracking-[0.3em]">{t.welcome}</p>
-              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-headline font-extrabold tracking-tighter text-on-surface">
-                {t.hello}, <span className="text-primary italic">{user?.displayName?.split(' ')[0] || 'Curator'}</span>.
-              </h2>
-            </motion.div>
-
-            <motion.div 
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex gap-4"
-            >
-              <div className="bg-surface-container-lowest px-6 sm:px-8 py-4 sm:py-5 rounded-2xl cloud-shadow border border-outline-variant/10 flex-1 sm:flex-none text-center sm:text-left">
-                <p className="text-2xl sm:text-3xl font-headline font-extrabold text-primary">{categories.length.toString().padStart(2, '0')}</p>
-                <p className="text-[10px] font-bold text-outline uppercase tracking-widest mt-1">{t.categories}</p>
-              </div>
-              <div className="bg-surface-container-lowest px-6 sm:px-8 py-4 sm:py-5 rounded-2xl cloud-shadow border border-outline-variant/10 flex-1 sm:flex-none text-center sm:text-left">
-                <p className="text-2xl sm:text-3xl font-headline font-extrabold text-primary">{categories.reduce((acc, c) => acc + c.bookmarks.length, 0).toString().padStart(2, '0')}</p>
-                <p className="text-[10px] font-bold text-outline uppercase tracking-widest mt-1">{t.bookmarks}</p>
-              </div>
-            </motion.div>
-          </section>
-
-          {/* Featured / Bento Grid */}
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Featured Card */}
-            <motion.div 
-              whileHover={{ y: -4 }}
-              className="md:col-span-2 relative overflow-hidden rounded-radius-xl bg-slate-900 h-[280px] sm:h-[320px] cloud-shadow group"
-            >
-              <img 
-                src="https://picsum.photos/seed/abstract/1200/600" 
-                alt="Featured" 
-                className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700"
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>
-              <div className="absolute bottom-0 left-0 p-6 sm:p-10 max-w-lg">
-                <span className="inline-block px-3 py-1 rounded-md bg-white/10 backdrop-blur-md text-white text-[10px] font-bold tracking-widest uppercase mb-4">{t.featured}</span>
-                <h3 className="text-2xl sm:text-3xl font-headline font-extrabold text-white mb-4 tracking-tight">{t.mastering}</h3>
-                <p className="text-slate-300 mb-6 text-xs sm:text-sm leading-relaxed hidden sm:block">A hand-picked selection of 24 tools for high-fidelity vector art and digital painting.</p>
-                <button className="px-6 py-2.5 bg-white text-slate-900 rounded-full text-sm font-bold flex items-center gap-2 hover:bg-primary hover:text-white transition-all">
-                  {t.explore}
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            </motion.div>
-
-            {/* Smart History / Daily Tip */}
-            <div className="flex flex-col gap-8">
-              <motion.div 
-                whileHover={{ y: -4 }}
-                className="flex-1 bg-secondary rounded-radius-xl p-6 sm:p-8 text-white relative overflow-hidden cloud-shadow group"
-              >
-                <Zap className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 group-hover:rotate-12 transition-transform duration-500" />
-                <h4 className="text-xl font-headline font-extrabold mb-2">{t.smartHistory}</h4>
-                <p className="text-secondary-fixed text-sm opacity-80 leading-relaxed">{t.historyDesc}</p>
-                <div className="mt-6 flex -space-x-2">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="w-10 h-10 rounded-full border-2 border-secondary bg-white/20 backdrop-blur-md flex items-center justify-center">
-                      <History className="w-4 h-4 text-white" />
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-
-              <motion.div 
-                whileHover={{ y: -4 }}
-                className="flex-1 bg-surface-container-lowest rounded-radius-xl p-6 sm:p-8 border border-outline-variant/10 cloud-shadow flex flex-col justify-center"
-              >
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 rounded-2xl bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed">
-                    <Command className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h4 className="font-headline font-extrabold text-on-surface">{t.dailyTip}</h4>
-                    <p className="text-[10px] text-outline font-bold uppercase tracking-widest">{t.productivity}</p>
-                  </div>
-                </div>
-                <p className="text-on-surface-variant text-sm italic leading-relaxed">"{t.tipDesc.replace('⌘', isMac ? '⌘' : 'Ctrl')}"</p>
-              </motion.div>
-            </div>
-          </section>
-
-          {/* Categories Grid */}
-          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredCategories.map(category => (
-              <CategoryCard 
-                key={category.id} 
-                category={{
-                  ...category,
-                  title: (t as any)[category.id] || category.title
-                }} 
-              />
-            ))}
-          </section>
+        <div className="p-4 sm:p-8 lg:p-12 max-w-7xl mx-auto w-full pb-32 lg:pb-12">
+          {renderContent()}
         </div>
 
         {/* Footer */}
@@ -1001,36 +1237,51 @@ export default function App() {
       </main>
 
       {/* --- Mobile Bottom Nav --- */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-surface/80 backdrop-blur-xl border-t border-outline-variant/10 flex justify-around items-center py-3 px-6 z-50">
-        <button className="flex flex-col items-center gap-1 text-primary">
-          <LayoutGrid className="w-6 h-6 fill-current" />
-          <span className="text-[10px] font-bold">{t.home}</span>
-        </button>
-        <button className="flex flex-col items-center gap-1 text-outline">
-          <Star className="w-6 h-6" />
-          <span className="text-[10px] font-bold">{t.saved}</span>
-        </button>
-        <button className="flex flex-col items-center gap-1 text-outline">
-          <UserIcon className="w-6 h-6" />
-          <span className="text-[10px] font-bold">{t.profile}</span>
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-surface/90 backdrop-blur-2xl border-t border-outline-variant/10 flex justify-around items-center py-2 px-4 z-50 pb-safe">
+        <button 
+          onClick={() => setActiveTab('dashboard')}
+          className={`flex flex-col items-center gap-1 p-2 ${activeTab === 'dashboard' ? 'text-primary' : 'text-outline'}`}
+        >
+          <LayoutGrid className={`w-5 h-5 ${activeTab === 'dashboard' ? 'fill-current' : ''}`} />
+          <span className="text-[9px] font-bold">{t.home}</span>
         </button>
         <button 
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex flex-col items-center gap-1 text-outline"
+          onClick={() => setActiveTab('favorites')}
+          className={`flex flex-col items-center gap-1 p-2 ${activeTab === 'favorites' ? 'text-primary' : 'text-outline'}`}
         >
-          <Plus className="w-6 h-6" />
-          <span className="text-[10px] font-bold">{t.addBookmark}</span>
+          <Star className={`w-5 h-5 ${activeTab === 'favorites' ? 'fill-current' : ''}`} />
+          <span className="text-[9px] font-bold">{t.saved}</span>
         </button>
-        <button className="flex flex-col items-center gap-1 text-outline">
-          <Settings className="w-6 h-6" />
-          <span className="text-[10px] font-bold">{t.tools}</span>
+        
+        <div className="relative -top-4">
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
+            className="w-12 h-12 bg-gradient-to-br from-primary to-primary-container text-white rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-transform"
+          >
+            <Plus className="w-6 h-6" />
+          </button>
+        </div>
+
+        <button 
+          onClick={() => setActiveTab('personal')}
+          className={`flex flex-col items-center gap-1 p-2 ${activeTab === 'personal' ? 'text-primary' : 'text-outline'}`}
+        >
+          <UserIcon className={`w-5 h-5 ${activeTab === 'personal' ? 'fill-current' : ''}`} />
+          <span className="text-[9px] font-bold">{t.profile}</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('settings')}
+          className={`flex flex-col items-center gap-1 p-2 ${activeTab === 'settings' ? 'text-primary' : 'text-outline'}`}
+        >
+          <Settings className={`w-5 h-5 ${activeTab === 'settings' ? 'fill-current' : ''}`} />
+          <span className="text-[9px] font-bold">{t.settings}</span>
         </button>
       </nav>
 
-      {/* --- Floating Action Button --- */}
+      {/* --- Floating Action Button (Desktop Only) --- */}
       <button 
         onClick={() => setIsAddModalOpen(true)}
-        className="fixed bottom-24 right-8 lg:bottom-12 lg:right-12 w-14 h-14 bg-gradient-to-br from-primary to-primary-container text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-40"
+        className="hidden lg:flex fixed bottom-12 right-12 w-14 h-14 bg-gradient-to-br from-primary to-primary-container text-white rounded-full shadow-2xl items-center justify-center hover:scale-110 active:scale-95 transition-all z-40"
       >
         <Plus className="w-6 h-6" />
       </button>

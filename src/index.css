@@ -34,30 +34,30 @@
   --radius-xl: 1.5rem;
 }
 
-/* Dark Mode Overrides - Atmospheric & Premium */
+/* Dark Mode Overrides - Neutral & Premium Slate */
 .dark {
-  --color-surface: #0A0A0A;
-  --color-on-surface: #F5F2ED;
-  --color-on-surface-variant: #A09592;
-  --color-surface-container-lowest: #050505;
-  --color-surface-container-low: #121212;
-  --color-surface-container-high: #1E1E1E;
-  --color-surface-container-highest: #262626;
-  --color-surface-bright: #2A2A2A;
+  --color-surface: #020617; /* slate-950 */
+  --color-on-surface: #f8fafc; /* slate-50 */
+  --color-on-surface-variant: #94a3b8; /* slate-400 */
+  --color-surface-container-lowest: #0f172a; /* slate-900 */
+  --color-surface-container-low: #1e293b; /* slate-800 */
+  --color-surface-container-high: #334155; /* slate-700 */
+  --color-surface-container-highest: #475569; /* slate-600 */
+  --color-surface-bright: #64748b; /* slate-500 */
 
-  --color-primary: #FF7A45; /* Slightly softer orange for dark mode */
-  --color-on-primary: #2D0F00;
-  --color-primary-container: #4A1A00;
-  --color-primary-fixed: #3D1500;
-  --color-on-primary-fixed-variant: #FFB596;
+  --color-primary: #38bdf8; /* sky-400 */
+  --color-on-primary: #082f49; /* sky-950 */
+  --color-primary-container: #0c4a6e; /* sky-900 */
+  --color-primary-fixed: #075985; /* sky-800 */
+  --color-on-primary-fixed-variant: #bae6fd; /* sky-200 */
 
-  --color-secondary: #D1D5C2;
-  --color-on-secondary: #323624;
-  --color-secondary-fixed: #434930;
-  --color-on-secondary-fixed-variant: #D1D5C2;
+  --color-secondary: #818cf8; /* indigo-400 */
+  --color-on-secondary: #1e1b4b; /* indigo-950 */
+  --color-secondary-fixed: #312e81; /* indigo-800 */
+  --color-on-secondary-fixed-variant: #c7d2fe; /* indigo-200 */
 
-  --color-outline: #6B5D59;
-  --color-outline-variant: #3D3330;
+  --color-outline: #475569; /* slate-600 */
+  --color-outline-variant: #1e293b; /* slate-800 */
 }
 
 @layer components {
