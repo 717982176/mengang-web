@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   Archive,
@@ -33,7 +33,6 @@ import {
 } from 'lucide-react';
 import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
 import {
-  addDoc,
   collection,
   deleteDoc,
   doc,
@@ -63,6 +62,17 @@ import {
   type ViewMode,
 } from './appData';
 import {
+  buildBookmarkDocument,
+  buildCategoryDocument,
+  buildPreferencesDocument,
+  buildUserProfileDocument,
+  normalizeBookmarkDocument,
+  normalizeCategoryDocument,
+  normalizePreferences,
+  type PreferencesDocument,
+  type UserPreferences,
+} from './cloudModel';
+import {
   ArchiveGrid,
   BookmarkSection,
   CategoryCard,
@@ -88,6 +98,8 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
   const [categories, setCategories] = useState<CategoryRecord[]>(buildDefaultCategories);
   const [newBookmark, setNewBookmark] = useState({
     title: '',
@@ -96,13 +108,24 @@ export default function App() {
     tag: '',
     categoryId: 'work',
   });
+  const preferencesRef = useRef<UserPreferences>({ lang, theme, wallpaper });
 
   const t = TRANSLATIONS[lang];
-  const toggleLang = () => setLang((prev) => (prev === 'zh' ? 'en' : 'zh'));
-  const toggleTheme = () => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   const currentLanguageCode = lang.toUpperCase();
   const currentLanguageLabel = lang === 'zh' ? t.languageLabelZh : t.languageLabelEn;
   const currentThemeLabel = theme === 'dark' ? t.themeLabelDark : t.themeLabelLight;
+  const syncStateLabel = !user
+    ? t.localOnly
+    : syncError
+      ? (lang === 'zh' ? '同步异常' : 'Sync issue')
+      : t.synced;
+  const lastSyncLabel = !user
+    ? t.lastSyncValueOffline
+    : syncError
+      ? (lang === 'zh' ? '请检查连接或权限' : 'Check connection or permissions')
+      : lastSyncAt
+        ? formatRelativeSync(lastSyncAt, lang)
+        : t.lastSyncValueSynced;
   const authTitle = lang === 'zh' ? '登录后继续使用 Lumina' : 'Sign in to continue with Lumina';
   const authDescription =
     lang === 'zh'
@@ -147,6 +170,44 @@ export default function App() {
     { id: 'settings', label: t.settings, icon: Settings },
   ];
 
+  const persistPreferences = async (patch: Partial<UserPreferences>) => {
+    if (!user) return;
+
+    try {
+      await setDoc(
+        doc(db, `users/${user.uid}/settings/preferences`),
+        {
+          ...patch,
+          updatedAt: serverTimestamp(),
+        } satisfies Partial<PreferencesDocument> & { updatedAt: ReturnType<typeof serverTimestamp> },
+        { merge: true },
+      );
+      setSyncError(null);
+      setLastSyncAt(Date.now());
+    } catch (error) {
+      console.error('Failed to persist preferences', error);
+      setSyncError(lang === 'zh' ? '设置同步失败' : 'Failed to sync settings');
+    }
+  };
+
+  const setLanguagePreference = (nextLang: Lang) => {
+    setLang(nextLang);
+    void persistPreferences({ lang: nextLang });
+  };
+
+  const setThemePreference = (nextTheme: Theme) => {
+    setTheme(nextTheme);
+    void persistPreferences({ theme: nextTheme });
+  };
+
+  const setWallpaperPreference = (nextWallpaper: string | null) => {
+    setWallpaper(nextWallpaper);
+    void persistPreferences({ wallpaper: nextWallpaper });
+  };
+
+  const toggleLang = () => setLanguagePreference(lang === 'zh' ? 'en' : 'zh');
+  const toggleTheme = () => setThemePreference(theme === 'dark' ? 'light' : 'dark');
+
   useEffect(() => {
     const savedTheme = localStorage.getItem(STORAGE_KEYS.theme) as Theme | null;
     const savedLang = localStorage.getItem(STORAGE_KEYS.lang) as Lang | null;
@@ -171,45 +232,99 @@ export default function App() {
   }, [lang]);
 
   useEffect(() => {
+    preferencesRef.current = { lang, theme, wallpaper };
+  }, [lang, theme, wallpaper]);
+
+  useEffect(() => {
+    if (wallpaper) {
+      localStorage.setItem(STORAGE_KEYS.wallpaper, wallpaper);
+      setWallpaperInput(wallpaper);
+      return;
+    }
+    localStorage.removeItem(STORAGE_KEYS.wallpaper);
+    setWallpaperInput('');
+  }, [wallpaper]);
+
+  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       setIsAuthReady(true);
       if (!firebaseUser) {
         setCategories(buildDefaultCategories());
+        setSyncError(null);
+        setLastSyncAt(null);
         return;
       }
 
       setAuthError(null);
+      setSyncError(null);
 
       try {
         const userRef = doc(db, 'users', firebaseUser.uid);
         const userDoc = await getDoc(userRef);
         if (!userDoc.exists()) {
           await setDoc(userRef, {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-            displayName: firebaseUser.displayName,
-            photoURL: firebaseUser.photoURL,
+            ...buildUserProfileDocument(firebaseUser),
             createdAt: serverTimestamp(),
           });
+        } else if (!userDoc.data().role) {
+          await setDoc(
+            userRef,
+            {
+              role: 'user',
+              displayName: firebaseUser.displayName ?? userDoc.data().displayName ?? null,
+              photoURL: firebaseUser.photoURL ?? userDoc.data().photoURL ?? null,
+            },
+            { merge: true },
+          );
         }
 
         const categoriesCollection = collection(db, `users/${firebaseUser.uid}/categories`);
         const existingCategories = await getDocs(categoriesCollection);
-        if (existingCategories.empty) {
-          for (const category of buildDefaultCategories()) {
-            await setDoc(doc(categoriesCollection, category.id), {
-              id: category.id,
-              order: category.order,
-              iconKey: category.iconKey,
-              color: category.color,
-              title: resolveCategoryTitle(category, 'en'),
-              subtitle: resolveCategorySubtitle(category, 'en'),
-            });
-          }
+        const existingCategoryMap = new Map(existingCategories.docs.map((entry) => [entry.id, entry.data()]));
+        for (const category of buildDefaultCategories()) {
+          const existingCategory = existingCategoryMap.get(category.id) ?? {};
+          const normalizedCategory = normalizeCategoryDocument(category.id, existingCategory, {
+            order: category.order,
+            iconKey: category.iconKey,
+            color: category.color,
+          });
+
+          await setDoc(
+            doc(categoriesCollection, category.id),
+            buildCategoryDocument(
+              {
+                ...category,
+                ...normalizedCategory,
+                bookmarks: [],
+              },
+              firebaseUser.uid,
+            ),
+          );
+        }
+
+        const bookmarksCollection = collection(db, `users/${firebaseUser.uid}/bookmarks`);
+        const existingBookmarks = await getDocs(bookmarksCollection);
+        for (const bookmarkEntry of existingBookmarks.docs) {
+          const bookmarkData = bookmarkEntry.data();
+          const normalizedBookmark = normalizeBookmarkDocument(bookmarkEntry.id, bookmarkData);
+          await setDoc(doc(bookmarksCollection, bookmarkEntry.id), {
+            ...buildBookmarkDocument(normalizedBookmark, firebaseUser.uid),
+            createdAt: bookmarkData.createdAt ?? serverTimestamp(),
+          });
+        }
+
+        const preferencesDocRef = doc(db, `users/${firebaseUser.uid}/settings/preferences`);
+        const preferencesDoc = await getDoc(preferencesDocRef);
+        if (!preferencesDoc.exists()) {
+          await setDoc(preferencesDocRef, {
+            ...buildPreferencesDocument(preferencesRef.current),
+            updatedAt: serverTimestamp(),
+          });
         }
       } catch (error) {
         console.error('Failed to bootstrap profile', error);
+        setSyncError(preferencesRef.current.lang === 'zh' ? '云端初始化失败' : 'Cloud bootstrap failed');
       }
     });
     return () => unsubscribe();
@@ -217,38 +332,87 @@ export default function App() {
 
   useEffect(() => {
     if (!user || !isAuthReady) return;
+
+    const preferencesDocRef = doc(db, `users/${user.uid}/settings/preferences`);
+    return onSnapshot(
+      preferencesDocRef,
+      (snapshot) => {
+        if (!snapshot.exists()) return;
+
+        const nextPreferences = normalizePreferences(
+          snapshot.data() as Partial<PreferencesDocument>,
+          preferencesRef.current,
+        );
+
+        setLang(nextPreferences.lang);
+        setTheme(nextPreferences.theme);
+        setWallpaper(nextPreferences.wallpaper);
+        setSyncError(null);
+        setLastSyncAt(Date.now());
+      },
+      (error) => {
+        console.error('Failed to sync preferences', error);
+        setSyncError(preferencesRef.current.lang === 'zh' ? '设置同步失败' : 'Failed to sync settings');
+      },
+    );
+  }, [isAuthReady, user]);
+
+  useEffect(() => {
+    if (!user || !isAuthReady) return;
+
     const categoriesQuery = query(collection(db, `users/${user.uid}/categories`), orderBy('order', 'asc'));
     const bookmarksQuery = query(collection(db, `users/${user.uid}/bookmarks`), orderBy('createdAt', 'desc'));
     let remoteBookmarks: BookmarkRecord[] = [];
+    let remoteCategories: Omit<CategoryRecord, 'bookmarks'>[] = [];
 
-    const unsubscribeCategories = onSnapshot(categoriesQuery, (snapshot) => {
-      const remoteCategories = snapshot.docs.map((entry) => {
-        const data = entry.data() as Partial<CategoryRecord>;
-        const meta = CATEGORY_META[entry.id as keyof typeof CATEGORY_META];
-        return {
-          id: entry.id,
-          order: Number(data.order) || meta?.order || 99,
-          iconKey: data.iconKey || meta?.iconKey || 'LayoutGrid',
-          color: (data.color as CategoryRecord['color']) || meta?.color || 'slate',
-          title: data.title,
-          subtitle: data.subtitle,
-          bookmarks: remoteBookmarks.filter((bookmark) => bookmark.categoryId === entry.id),
-        };
-      });
-      setCategories(remoteCategories.length > 0 ? remoteCategories : buildDefaultCategories());
-    });
+    const syncCategories = () => {
+      if (remoteCategories.length === 0) return;
 
-    const unsubscribeBookmarks = onSnapshot(bookmarksQuery, (snapshot) => {
-      remoteBookmarks = snapshot.docs.map((entry) =>
-        normalizeBookmark({ id: entry.id, ...(entry.data() as Partial<BookmarkRecord>) }),
-      );
-      setCategories((previous) =>
-        previous.map((category) => ({
+      setCategories(
+        remoteCategories.map((category) => ({
           ...category,
           bookmarks: remoteBookmarks.filter((bookmark) => bookmark.categoryId === category.id),
         })),
       );
-    });
+      setSyncError(null);
+      setLastSyncAt(Date.now());
+    };
+
+    const unsubscribeCategories = onSnapshot(
+      categoriesQuery,
+      (snapshot) => {
+        remoteCategories = snapshot.docs.map((entry) => {
+          const data = entry.data();
+          const meta = CATEGORY_META[entry.id as keyof typeof CATEGORY_META];
+
+          return normalizeCategoryDocument(entry.id, data, {
+            order: meta?.order ?? 99,
+            iconKey: meta?.iconKey ?? 'LayoutGrid',
+            color: meta?.color ?? 'slate',
+          });
+        });
+
+        syncCategories();
+      },
+      (error) => {
+        console.error('Failed to sync categories', error);
+        setSyncError(preferencesRef.current.lang === 'zh' ? '分类同步失败' : 'Failed to sync categories');
+      },
+    );
+
+    const unsubscribeBookmarks = onSnapshot(
+      bookmarksQuery,
+      (snapshot) => {
+        remoteBookmarks = snapshot.docs.map((entry) =>
+          normalizeBookmarkDocument(entry.id, entry.data()),
+        );
+        syncCategories();
+      },
+      (error) => {
+        console.error('Failed to sync bookmarks', error);
+        setSyncError(preferencesRef.current.lang === 'zh' ? '书签同步失败' : 'Failed to sync bookmarks');
+      },
+    );
 
     return () => {
       unsubscribeCategories();
@@ -278,7 +442,14 @@ export default function App() {
     patch: Partial<BookmarkRecord>,
   ) => {
     if (!user) return;
-    await setDoc(doc(db, `users/${user.uid}/bookmarks/${bookmarkId}`), patch, { merge: true });
+    try {
+      await setDoc(doc(db, `users/${user.uid}/bookmarks/${bookmarkId}`), patch, { merge: true });
+      setSyncError(null);
+      setLastSyncAt(Date.now());
+    } catch (error) {
+      console.error('Failed to update bookmark', error);
+      setSyncError(lang === 'zh' ? '书签更新失败' : 'Failed to update bookmark');
+    }
   };
 
   const toggleFavorite = (bookmark: BookmarkRecord) =>
@@ -289,7 +460,14 @@ export default function App() {
 
   const deleteBookmark = async (bookmark: BookmarkRecord) => {
     if (!user) return;
-    await deleteDoc(doc(db, `users/${user.uid}/bookmarks/${bookmark.id}`));
+    try {
+      await deleteDoc(doc(db, `users/${user.uid}/bookmarks/${bookmark.id}`));
+      setSyncError(null);
+      setLastSyncAt(Date.now());
+    } catch (error) {
+      console.error('Failed to delete bookmark', error);
+      setSyncError(lang === 'zh' ? '书签删除失败' : 'Failed to delete bookmark');
+    }
   };
 
   const openAddModal = () => {
@@ -307,19 +485,29 @@ export default function App() {
     event?.preventDefault();
     if (!newBookmark.title.trim() || !newBookmark.url.trim() || !newBookmark.categoryId) return;
     if (!user) return;
-    const bookmark = normalizeBookmark({
-      title: newBookmark.title,
-      url: newBookmark.url,
-      description: newBookmark.description,
-      tag: newBookmark.tag || 'General',
-      categoryId: newBookmark.categoryId,
-    });
-    await addDoc(collection(db, `users/${user.uid}/bookmarks`), {
-      ...bookmark,
-      createdAt: serverTimestamp(),
-    });
-    setNewBookmark({ title: '', url: '', description: '', tag: '', categoryId: newBookmark.categoryId });
-    setIsAddModalOpen(false);
+    try {
+      const bookmarkRef = doc(collection(db, `users/${user.uid}/bookmarks`));
+      const bookmark = normalizeBookmark({
+        id: bookmarkRef.id,
+        title: newBookmark.title,
+        url: newBookmark.url,
+        description: newBookmark.description,
+        tag: newBookmark.tag || 'General',
+        categoryId: newBookmark.categoryId,
+      });
+
+      await setDoc(bookmarkRef, {
+        ...buildBookmarkDocument(bookmark, user.uid),
+        createdAt: serverTimestamp(),
+      });
+      setNewBookmark({ title: '', url: '', description: '', tag: '', categoryId: newBookmark.categoryId });
+      setIsAddModalOpen(false);
+      setSyncError(null);
+      setLastSyncAt(Date.now());
+    } catch (error) {
+      console.error('Failed to add bookmark', error);
+      setSyncError(lang === 'zh' ? '书签创建失败' : 'Failed to create bookmark');
+    }
   };
 
   const handleSignIn = async () => {
@@ -335,15 +523,11 @@ export default function App() {
   const applyWallpaper = (value: string) => {
     const trimmed = value.trim();
     if (!trimmed) return;
-    setWallpaper(trimmed);
-    setWallpaperInput(trimmed);
-    localStorage.setItem(STORAGE_KEYS.wallpaper, trimmed);
+    setWallpaperPreference(trimmed);
   };
 
   const resetWallpaper = () => {
-    setWallpaper(null);
-    setWallpaperInput('');
-    localStorage.removeItem(STORAGE_KEYS.wallpaper);
+    setWallpaperPreference(null);
   };
 
   const handleWallpaperUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -540,7 +724,7 @@ export default function App() {
                 </div>
                 <div className="mt-auto rounded-[1.5rem] bg-white/[0.03] p-4">
                   <p className="label-meta">{t.syncState}</p>
-                  <p className="mt-2 text-sm text-on-surface/62">{user ? t.synced : t.localOnly}</p>
+                  <p className="mt-2 text-sm text-on-surface/62">{syncStateLabel}</p>
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     <button className="ghost-button w-full justify-between px-3 py-2.5" onClick={toggleLang} type="button">
                       <span className="inline-flex items-center gap-2">
@@ -785,7 +969,7 @@ export default function App() {
                 </div>
                 <div className="hidden min-w-0 text-left sm:block">
                   <p className="truncate text-sm font-semibold">{user?.displayName || t.guest}</p>
-                  <p className="truncate text-[10px] uppercase tracking-[0.18em] text-on-surface/45">{user ? t.synced : t.localOnly}</p>
+                  <p className="truncate text-[10px] uppercase tracking-[0.18em] text-on-surface/45">{syncStateLabel}</p>
                 </div>
                 <ChevronDown className="hidden h-4 w-4 text-on-surface/45 sm:block" />
               </button>
@@ -867,7 +1051,7 @@ export default function App() {
                         </div>
                       </div>
                       <div className="grid gap-4 md:grid-cols-2">
-                        <button className={`theme-preview ${theme === 'dark' ? 'theme-preview-active' : ''}`} onClick={() => setTheme('dark')} type="button">
+                        <button className={`theme-preview ${theme === 'dark' ? 'theme-preview-active' : ''}`} onClick={() => setThemePreference('dark')} type="button">
                           <div className="theme-preview-canvas theme-preview-dark">
                             <div className="theme-preview-sidebar" />
                             <div className="theme-preview-surface" />
@@ -878,7 +1062,7 @@ export default function App() {
                             <p className="mt-1 text-sm text-on-surface/58">{t.themeDarkDesc}</p>
                           </div>
                         </button>
-                        <button className={`theme-preview ${theme === 'light' ? 'theme-preview-active' : ''}`} onClick={() => setTheme('light')} type="button">
+                        <button className={`theme-preview ${theme === 'light' ? 'theme-preview-active' : ''}`} onClick={() => setThemePreference('light')} type="button">
                           <div className="theme-preview-canvas theme-preview-light">
                             <div className="theme-preview-sidebar" />
                             <div className="theme-preview-surface" />
@@ -956,11 +1140,11 @@ export default function App() {
                       <div className="space-y-4 text-sm text-on-surface/62">
                         <div className="flex items-center justify-between rounded-2xl bg-white/[0.03] px-4 py-3">
                           <span>{t.syncState}</span>
-                          <span className="font-semibold text-primary">{user ? t.synced : t.localOnly}</span>
+                          <span className="font-semibold text-primary">{syncStateLabel}</span>
                         </div>
                         <div className="flex items-center justify-between rounded-2xl bg-white/[0.03] px-4 py-3">
                           <span>{t.lastSync}</span>
-                          <span className="font-semibold">{user ? t.lastSyncValueSynced : t.lastSyncValueOffline}</span>
+                          <span className="font-semibold">{lastSyncLabel}</span>
                         </div>
                         <div className="flex items-center justify-between rounded-2xl bg-white/[0.03] px-4 py-3">
                           <span>{t.language}</span>
@@ -991,4 +1175,19 @@ export default function App() {
       </div>
     </ErrorBoundary>
   );
+}
+
+function formatRelativeSync(timestamp: number, lang: Lang) {
+  const deltaMinutes = Math.max(1, Math.round((Date.now() - timestamp) / 60000));
+  if (deltaMinutes < 60) {
+    return lang === 'zh' ? `${deltaMinutes} 分钟前` : `${deltaMinutes}m ago`;
+  }
+
+  const hours = Math.floor(deltaMinutes / 60);
+  if (hours < 24) {
+    return lang === 'zh' ? `${hours} 小时前` : `${hours}h ago`;
+  }
+
+  const days = Math.floor(hours / 24);
+  return lang === 'zh' ? `${days} 天前` : `${days}d ago`;
 }

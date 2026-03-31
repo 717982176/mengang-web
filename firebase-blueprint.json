@@ -9,7 +9,8 @@
         "email": { "type": "string", "format": "email", "description": "User email address" },
         "displayName": { "type": "string", "description": "User display name" },
         "photoURL": { "type": "string", "description": "User profile photo URL" },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Account creation timestamp" }
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account creation timestamp" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "Authorization role" }
       },
       "required": ["uid", "email"]
     },
@@ -21,28 +22,43 @@
         "id": { "type": "string", "description": "Category ID" },
         "title": { "type": "string", "description": "Category title" },
         "subtitle": { "type": "string", "description": "Category subtitle" },
-        "icon": { "type": "string", "description": "Lucide icon name" },
+        "iconKey": { "type": "string", "description": "Lucide icon name" },
+        "color": { "type": "string", "enum": ["blue", "violet", "emerald", "slate"], "description": "Accent color key" },
         "order": { "type": "integer", "description": "Display order" },
         "uid": { "type": "string", "description": "Owner user ID" }
       },
-      "required": ["title", "uid"]
+      "required": ["id", "title", "uid"]
     },
     "Bookmark": {
       "title": "Bookmark",
       "description": "A saved link",
       "type": "object",
       "properties": {
-        "id": { "type": "string", "description": "Bookmark ID" },
+        "id": { "type": "string", "description": "Bookmark document ID" },
         "categoryId": { "type": "string", "description": "Parent category ID" },
         "title": { "type": "string", "description": "Bookmark title" },
         "url": { "type": "string", "format": "uri", "description": "Bookmark URL" },
         "description": { "type": "string", "description": "Brief description" },
-        "icon": { "type": "string", "description": "Bookmark icon name or URL" },
+        "icon": { "type": "string", "description": "Bookmark icon URL" },
+        "tag": { "type": "string", "description": "Bookmark tag" },
         "isFavorite": { "type": "boolean", "description": "Whether it's a favorite" },
+        "isArchived": { "type": "boolean", "description": "Whether it's archived" },
         "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
         "uid": { "type": "string", "description": "Owner user ID" }
       },
-      "required": ["title", "url", "categoryId", "uid"]
+      "required": ["id", "title", "url", "categoryId", "uid"]
+    },
+    "Preferences": {
+      "title": "Preferences",
+      "description": "Per-user synced appearance preferences",
+      "type": "object",
+      "properties": {
+        "lang": { "type": "string", "enum": ["zh", "en"], "description": "Interface language" },
+        "theme": { "type": "string", "enum": ["dark", "light"], "description": "UI theme" },
+        "wallpaper": { "type": ["string", "null"], "description": "Wallpaper URL or data URI" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last settings update" }
+      },
+      "required": ["lang", "theme"]
     }
   },
   "firestore": {
@@ -57,6 +73,10 @@
     "/users/{userId}/bookmarks/{bookmarkId}": {
       "schema": "Bookmark",
       "description": "User-specific bookmarks"
+    },
+    "/users/{userId}/settings/preferences": {
+      "schema": "Preferences",
+      "description": "User-specific synced preferences"
     }
   }
 }
