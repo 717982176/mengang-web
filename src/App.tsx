@@ -51,8 +51,6 @@ import {
   CATEGORY_META,
   filterBookmarks,
   normalizeBookmark,
-  persistGuestCategories,
-  readGuestCategories,
   resolveCategorySubtitle,
   resolveCategoryTitle,
   STORAGE_KEYS,
@@ -89,6 +87,7 @@ export default function App() {
   const [wallpaperInput, setWallpaperInput] = useState('');
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [categories, setCategories] = useState<CategoryRecord[]>(buildDefaultCategories);
   const [newBookmark, setNewBookmark] = useState({
     title: '',
@@ -104,6 +103,18 @@ export default function App() {
   const currentLanguageCode = lang.toUpperCase();
   const currentLanguageLabel = lang === 'zh' ? t.languageLabelZh : t.languageLabelEn;
   const currentThemeLabel = theme === 'dark' ? t.themeLabelDark : t.themeLabelLight;
+  const authTitle = lang === 'zh' ? '登录后继续使用 Lumina' : 'Sign in to continue with Lumina';
+  const authDescription =
+    lang === 'zh'
+      ? '访客模式已关闭。请使用 Google 登录后再查看、编辑并同步你的书签与设置。'
+      : 'Guest mode is disabled. Sign in with Google to view, edit, and sync your bookmarks and settings.';
+  const authHint =
+    lang === 'zh'
+      ? '登录后数据会保存到云端，并在同一账户下自动同步。'
+      : 'Your data will be saved to the cloud and synced automatically across the same account.';
+  const authButtonLabel = lang === 'zh' ? '使用 Google 登录' : 'Continue with Google';
+  const authErrorLabel =
+    authError || (lang === 'zh' ? '登录失败，请稍后重试。' : 'Sign-in failed. Please try again.');
   const allBookmarks = categories.flatMap((category) => category.bookmarks);
   const activeCategory = categories.find((category) => category.id === activeTab);
   const nonArchivedBookmarks = allBookmarks.filter((bookmark) => !bookmark.isArchived);
@@ -164,9 +175,11 @@ export default function App() {
       setUser(firebaseUser);
       setIsAuthReady(true);
       if (!firebaseUser) {
-        setCategories(readGuestCategories());
+        setCategories(buildDefaultCategories());
         return;
       }
+
+      setAuthError(null);
 
       try {
         const userRef = doc(db, 'users', firebaseUser.uid);
@@ -260,56 +273,22 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [searchQuery]);
 
-  const updateGuestCategories = (updater: (previous: CategoryRecord[]) => CategoryRecord[]) => {
-    setCategories((previous) => {
-      const next = updater(previous);
-      persistGuestCategories(next);
-      return next;
-    });
-  };
-
   const setBookmarkValue = async (
     bookmarkId: string,
     patch: Partial<BookmarkRecord>,
-    guestUpdater: (previous: CategoryRecord[]) => CategoryRecord[],
   ) => {
-    if (!user) {
-      updateGuestCategories(guestUpdater);
-      return;
-    }
+    if (!user) return;
     await setDoc(doc(db, `users/${user.uid}/bookmarks/${bookmarkId}`), patch, { merge: true });
   };
 
   const toggleFavorite = (bookmark: BookmarkRecord) =>
-    void setBookmarkValue(bookmark.id, { isFavorite: !bookmark.isFavorite }, (previous) =>
-      previous.map((category) => ({
-        ...category,
-        bookmarks: category.bookmarks.map((item) =>
-          item.id === bookmark.id ? { ...item, isFavorite: !bookmark.isFavorite } : item,
-        ),
-      })),
-    );
+    void setBookmarkValue(bookmark.id, { isFavorite: !bookmark.isFavorite });
 
   const toggleArchive = (bookmark: BookmarkRecord) =>
-    void setBookmarkValue(bookmark.id, { isArchived: !bookmark.isArchived }, (previous) =>
-      previous.map((category) => ({
-        ...category,
-        bookmarks: category.bookmarks.map((item) =>
-          item.id === bookmark.id ? { ...item, isArchived: !bookmark.isArchived } : item,
-        ),
-      })),
-    );
+    void setBookmarkValue(bookmark.id, { isArchived: !bookmark.isArchived });
 
   const deleteBookmark = async (bookmark: BookmarkRecord) => {
-    if (!user) {
-      updateGuestCategories((previous) =>
-        previous.map((category) => ({
-          ...category,
-          bookmarks: category.bookmarks.filter((item) => item.id !== bookmark.id),
-        })),
-      );
-      return;
-    }
+    if (!user) return;
     await deleteDoc(doc(db, `users/${user.uid}/bookmarks/${bookmark.id}`));
   };
 
@@ -327,6 +306,7 @@ export default function App() {
   const handleAddBookmark = async (event?: React.FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
     if (!newBookmark.title.trim() || !newBookmark.url.trim() || !newBookmark.categoryId) return;
+    if (!user) return;
     const bookmark = normalizeBookmark({
       title: newBookmark.title,
       url: newBookmark.url,
@@ -334,22 +314,22 @@ export default function App() {
       tag: newBookmark.tag || 'General',
       categoryId: newBookmark.categoryId,
     });
-    if (!user) {
-      updateGuestCategories((previous) =>
-        previous.map((category) =>
-          category.id === bookmark.categoryId
-            ? { ...category, bookmarks: [bookmark, ...category.bookmarks] }
-            : category,
-        ),
-      );
-    } else {
-      await addDoc(collection(db, `users/${user.uid}/bookmarks`), {
-        ...bookmark,
-        createdAt: serverTimestamp(),
-      });
-    }
+    await addDoc(collection(db, `users/${user.uid}/bookmarks`), {
+      ...bookmark,
+      createdAt: serverTimestamp(),
+    });
     setNewBookmark({ title: '', url: '', description: '', tag: '', categoryId: newBookmark.categoryId });
     setIsAddModalOpen(false);
+  };
+
+  const handleSignIn = async () => {
+    setAuthError(null);
+    try {
+      await signIn();
+    } catch (error) {
+      console.error('Failed to sign in', error);
+      setAuthError(authErrorLabel);
+    }
   };
 
   const applyWallpaper = (value: string) => {
@@ -430,6 +410,92 @@ export default function App() {
   const paletteBookmarks = nonArchivedBookmarks
     .filter((bookmark) => filterBookmarks([bookmark], paletteFilter).length > 0)
     .slice(0, 6);
+
+  if (!isAuthReady) {
+    return (
+      <ErrorBoundary>
+        <div className="app-shell flex min-h-screen items-center justify-center px-4 py-10 text-on-surface sm:px-6">
+          <div className="panel-surface flex w-full max-w-md items-center justify-center gap-3 rounded-[2rem] px-6 py-8 text-center">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <span className="text-sm font-medium">{t.loadingAuth}</span>
+          </div>
+        </div>
+      </ErrorBoundary>
+    );
+  }
+
+  if (!user) {
+    return (
+      <ErrorBoundary>
+        <div className="app-shell min-h-screen px-4 py-6 text-on-surface sm:px-6 lg:px-8">
+          <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-6xl flex-col justify-between gap-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-container text-[#06101f] shadow-[0_0_40px_rgba(75,142,255,0.35)]">
+                  <LayoutGrid className="h-5 w-5" />
+                </div>
+                <div>
+                  <h1 className="font-headline text-3xl font-black tracking-tight">Lumina</h1>
+                  <p className="label-meta">{t.dashboardHeroTag}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button className="ghost-button h-10 px-3" onClick={toggleLang} type="button">
+                  <Languages className="h-4 w-4" />
+                  <span className="text-sm font-semibold text-on-surface">{currentLanguageCode}</span>
+                </button>
+                <button className="icon-button" onClick={toggleTheme} type="button">
+                  {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="grid flex-1 items-center gap-6 xl:grid-cols-[minmax(0,1.1fr)_420px]">
+              <section className="hero-panel overflow-hidden px-6 py-8 sm:px-8 sm:py-10">
+                <div className="relative z-10 max-w-3xl">
+                  <span className="label-meta text-primary">{t.syncState}</span>
+                  <h2 className="mt-4 font-headline text-4xl font-black tracking-[-0.04em] sm:text-6xl">
+                    {authTitle}
+                  </h2>
+                  <p className="mt-4 max-w-2xl text-base leading-7 text-on-surface/66 sm:text-lg">
+                    {authDescription}
+                  </p>
+                  <div className="mt-8 flex flex-wrap gap-3">
+                    <button className="primary-button" onClick={() => void handleSignIn()} type="button">
+                      <LogIn className="h-4 w-4" />
+                      {authButtonLabel}
+                    </button>
+                  </div>
+                  <p className="mt-5 text-sm text-on-surface/55">{authHint}</p>
+                  {authError && <p className="mt-4 text-sm font-medium text-red-300">{authError}</p>}
+                </div>
+                <div className="hero-orb hero-orb-primary" />
+                <div className="hero-orb hero-orb-secondary" />
+              </section>
+
+              <aside className="panel-surface p-6 sm:p-7">
+                <p className="label-meta">{t.systemStatus}</p>
+                <h3 className="mt-3 font-headline text-2xl font-extrabold tracking-tight">
+                  {lang === 'zh' ? 'Google 云端同步' : 'Google Cloud Sync'}
+                </h3>
+                <div className="mt-6 space-y-3 text-sm text-on-surface/62">
+                  <div className="rounded-[1.4rem] bg-white/[0.03] px-4 py-3">
+                    {lang === 'zh' ? '登录后可在同一 Google 账户下同步全部书签。' : 'Sync all bookmarks across the same Google account after sign-in.'}
+                  </div>
+                  <div className="rounded-[1.4rem] bg-white/[0.03] px-4 py-3">
+                    {lang === 'zh' ? '新增、收藏、归档和设置修改都会直接写入云端。' : 'Adds, favorites, archives, and settings changes are written directly to the cloud.'}
+                  </div>
+                  <div className="rounded-[1.4rem] bg-white/[0.03] px-4 py-3">
+                    {lang === 'zh' ? '当前已关闭访客模式，未登录时不可进入工作区。' : 'Guest mode is disabled, and the workspace stays locked until you sign in.'}
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </div>
+      </ErrorBoundary>
+    );
+  }
 
   return (
     <ErrorBoundary>
@@ -772,38 +838,32 @@ export default function App() {
             {activeTab === 'archive' && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.archive}</span><h1 className="section-title">{t.archive}</h1><p className="mt-3 text-sm text-on-surface/58">{t.archiveDesc}</p></div>{archivedBookmarks.length > 0 && <button className="danger-button" onClick={() => void Promise.all(archivedBookmarks.map((bookmark) => deleteBookmark(bookmark)))} type="button"><Trash2 className="h-4 w-4" />{t.deleteAll}</button>}</div>{archivedBookmarks.length === 0 ? <div className="panel-surface flex min-h-[260px] flex-col items-center justify-center text-center"><Archive className="mb-4 h-12 w-12 text-on-surface/24" /><h3 className="text-xl font-bold">{t.emptyArchive}</h3><p className="mt-2 max-w-md text-sm text-on-surface/58">{t.archiveDesc}</p></div> : <ArchiveGrid bookmarks={archivedBookmarks} lang={lang} onDelete={deleteBookmark} onRestore={toggleArchive} />}</div>}
             {activeTab === 'personal' && <div className="space-y-8"><section className="hero-panel relative overflow-hidden px-6 py-8 sm:px-8"><img alt="" className="absolute inset-0 h-full w-full object-cover opacity-28" referrerPolicy="no-referrer" src={wallpaper || 'https://picsum.photos/seed/lumina-profile/1600/900'} /><div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" /><div className="relative z-10 flex flex-col gap-6 sm:flex-row sm:items-end"><div className="h-24 w-24 overflow-hidden rounded-[1.75rem] border border-white/14 bg-white/6 shadow-[0_18px_40px_rgba(0,0,0,0.25)]">{user?.photoURL ? <img alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" src={user.photoURL} /> : <div className="flex h-full w-full items-center justify-center"><UserIcon className="h-10 w-10 text-on-surface/58" /></div>}</div><div className="min-w-0 flex-1"><span className="label-meta text-primary">{t.personalSpace}</span><h1 className="mt-3 font-headline text-4xl font-black tracking-tight">{user?.displayName || t.guest}</h1><p className="mt-3 max-w-2xl text-sm leading-7 text-on-surface/64">{user ? t.personalDesc : t.guestDesc}</p></div></div></section><section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{stats.map((stat) => <MetricCard key={stat.label} {...stat} />)}</section><section className="space-y-4"><div className="section-header"><div><span className="label-meta">{t.preview}</span><h2 className="section-title">{t.yourCollections}</h2></div><button className="primary-button" onClick={openAddModal} type="button"><Plus className="h-4 w-4" />{t.addBookmark}</button></div><div className="grid gap-5 md:grid-cols-2">{categories.filter((category) => category.id === 'work' || category.id === 'personal').map((category) => <CategoryCard category={category} key={category.id} lang={lang} onOpen={() => goToTab(category.id)} />)}</div></section></div>}
             {activeTab === 'settings' && (
-              <div className="space-y-5">
+              <div className="space-y-4 sm:space-y-5">
                 <div>
                   <span className="label-meta">{t.settings}</span>
                   <h1 className="section-title">{t.settings}</h1>
                 </div>
                 <div className="grid gap-5 xl:grid-cols-[minmax(0,1.04fr)_332px] 2xl:grid-cols-[minmax(0,1.1fr)_356px]">
                   <div className="space-y-5">
-                    <div className="panel-surface p-4 sm:p-5">
-                      <div className="mb-5">
-                        <span className="label-meta">{t.interfaceQuickActions}</span>
-                        <h2 className="mt-2 text-2xl font-headline font-extrabold tracking-tight">{t.interfaceQuickActions}</h2>
-                        <p className="mt-2 text-sm text-on-surface/58">{t.interfaceQuickActionsDesc}</p>
-                      </div>
+                    <div className="space-y-3">
+                      <span className="label-meta">{t.interfaceQuickActions}</span>
                       <div className="grid grid-cols-2 gap-3">
-                        <button className="ghost-button h-14 w-full justify-center rounded-[1.35rem] px-3" onClick={toggleTheme} type="button">
+                        <button className="ghost-button h-12 w-full justify-center rounded-[1.35rem] px-3" onClick={toggleTheme} type="button">
                           {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                           <span className="text-[11px] font-bold uppercase tracking-[0.18em]">THEME</span>
                         </button>
-                        <button className="ghost-button h-14 w-full justify-between rounded-[1.35rem] px-4" onClick={toggleLang} type="button">
-                          <span className="inline-flex items-center gap-2">
-                            <Languages className="h-4 w-4" />
-                          </span>
+                        <button className="ghost-button h-12 w-full justify-center rounded-[1.35rem] px-3" onClick={toggleLang} type="button">
+                          <Languages className="h-4 w-4" />
                           <span className="text-sm font-semibold text-on-surface">{currentLanguageCode}</span>
                         </button>
                       </div>
                     </div>
 
-                    <div className="panel-surface p-5 sm:p-6">
+                    <div className="panel-surface p-4 sm:p-6">
                       <div className="section-header mb-5">
                         <div>
                           <span className="label-meta">{t.appearance}</span>
-                          <h2 className="text-2xl font-headline font-extrabold tracking-tight">{t.darkTheme}</h2>
+                          <h2 className="text-xl font-headline font-extrabold tracking-tight sm:text-2xl">{t.darkTheme}</h2>
                         </div>
                       </div>
                       <div className="grid gap-4 md:grid-cols-2">
@@ -831,15 +891,15 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="panel-surface p-5 sm:p-6">
+                    <div className="panel-surface p-4 sm:p-6">
                       <div className="section-header mb-5">
                         <div>
                           <span className="label-meta">{t.wallpaper}</span>
-                          <h2 className="text-2xl font-headline font-extrabold tracking-tight">{t.wallpaper}</h2>
+                          <h2 className="text-xl font-headline font-extrabold tracking-tight sm:text-2xl">{t.wallpaper}</h2>
                         </div>
                       </div>
                       <div className="overflow-hidden rounded-[1.5rem] border border-white/10">
-                        <img alt="" className="h-44 w-full object-cover sm:h-52" referrerPolicy="no-referrer" src={wallpaper || 'https://picsum.photos/seed/lumina-wallpaper-preview/1600/900'} />
+                        <img alt="" className="h-36 w-full object-cover sm:h-52" referrerPolicy="no-referrer" src={wallpaper || 'https://picsum.photos/seed/lumina-wallpaper-preview/1600/900'} />
                       </div>
                       <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                         <input className="neo-input flex-1" placeholder={t.wallpaperPlaceholder} value={wallpaperInput} onChange={(event) => setWallpaperInput(event.target.value)} />
@@ -866,10 +926,10 @@ export default function App() {
                   </div>
 
                   <div className="space-y-5">
-                    <div className="panel-surface p-5 sm:p-6">
+                    <div className="panel-surface p-4 sm:p-6">
                       <p className="label-meta">{t.account}</p>
-                      <h2 className="mt-2 text-2xl font-headline font-extrabold tracking-tight">{t.account}</h2>
-                      <div className="mt-5 rounded-[1.5rem] bg-white/[0.03] p-4">
+                      <h2 className="mt-2 text-xl font-headline font-extrabold tracking-tight sm:text-2xl">{t.account}</h2>
+                      <div className="mt-5 rounded-[1.5rem] bg-white/[0.03] p-3 sm:p-4">
                         <div className="flex items-center gap-4">
                           <div className="h-14 w-14 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
                             {user?.photoURL ? <img alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" src={user.photoURL} /> : <div className="flex h-full w-full items-center justify-center"><UserIcon className="h-6 w-6 text-on-surface/52" /></div>}
@@ -885,11 +945,11 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="curator-glass rounded-[2rem] p-5 sm:p-6">
+                    <div className="curator-glass rounded-[2rem] p-4 sm:p-6">
                       <div className="mb-5 flex items-center justify-between">
                         <div>
                           <p className="label-meta text-primary">{t.systemStatus}</p>
-                          <h2 className="mt-2 text-2xl font-headline font-extrabold tracking-tight">{t.syncState}</h2>
+                          <h2 className="mt-2 text-xl font-headline font-extrabold tracking-tight sm:text-2xl">{t.syncState}</h2>
                         </div>
                         <WandSparkles className="h-5 w-5 text-primary" />
                       </div>
@@ -928,8 +988,6 @@ export default function App() {
           <button className={`mobile-nav-item ${activeTab === 'personal' ? 'mobile-nav-item-active' : ''}`} onClick={() => goToTab('personal')} type="button"><UserIcon className="h-5 w-5" /><span>{t.personal}</span></button>
           <button className={`mobile-nav-item ${activeTab === 'settings' ? 'mobile-nav-item-active' : ''}`} onClick={() => goToTab('settings')} type="button"><Settings className="h-5 w-5" /><span>{t.settings}</span></button>
         </nav>
-
-        {!isAuthReady && <div className="pointer-events-none fixed right-5 top-5 z-[130] flex items-center gap-2 rounded-full border border-primary/15 bg-background/80 px-4 py-2 text-sm text-on-surface backdrop-blur-md"><Loader2 className="h-4 w-4 animate-spin text-primary" /><span>{t.loadingAuth}</span></div>}
       </div>
     </ErrorBoundary>
   );
