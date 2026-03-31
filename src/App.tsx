@@ -479,9 +479,8 @@ export default function App() {
                     <button className="ghost-button w-full justify-between px-3 py-2.5" onClick={toggleLang} type="button">
                       <span className="inline-flex items-center gap-2">
                         <Languages className="h-4 w-4" />
-                        <span className="text-[11px] font-bold uppercase tracking-[0.18em]">LANG</span>
                       </span>
-                      <span className="text-xs font-semibold text-primary">{currentLanguageCode}</span>
+                      <span className="text-xs font-semibold text-on-surface">{currentLanguageCode}</span>
                     </button>
                     <button className="ghost-button w-full justify-center gap-2 px-3 py-2.5" onClick={toggleTheme} type="button">
                       <span className="inline-flex items-center gap-2">
@@ -707,8 +706,7 @@ export default function App() {
               <div className="hidden items-center gap-2 md:flex">
                 <button className="ghost-button h-10 px-3" onClick={toggleLang} type="button">
                   <Languages className="h-4 w-4" />
-                  <span className="text-[11px] font-bold uppercase tracking-[0.18em]">LANG</span>
-                  <span className="hidden lg:inline text-xs font-semibold text-primary">{currentLanguageCode}</span>
+                  <span className="text-sm font-semibold text-on-surface">{currentLanguageCode}</span>
                 </button>
                 <button className="icon-button" onClick={toggleTheme} type="button">
                   {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -795,9 +793,8 @@ export default function App() {
                         <button className="ghost-button h-14 w-full justify-between rounded-[1.35rem] px-4" onClick={toggleLang} type="button">
                           <span className="inline-flex items-center gap-2">
                             <Languages className="h-4 w-4" />
-                            <span className="text-[11px] font-bold uppercase tracking-[0.18em]">LANG</span>
                           </span>
-                          <span className="text-sm font-semibold text-primary">{currentLanguageCode}</span>
+                          <span className="text-sm font-semibold text-on-surface">{currentLanguageCode}</span>
                         </button>
                       </div>
                     </div>
