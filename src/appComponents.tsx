@@ -131,6 +131,10 @@ export function CategoryCard({
     emerald: 'bg-emerald-400/14 text-emerald-200',
     slate: 'bg-white/6 text-on-surface/78',
   };
+  const itemLabel =
+    lang === 'zh'
+      ? `${category.bookmarks.filter((bookmark) => !bookmark.isArchived).length} 个条目`
+      : `${category.bookmarks.filter((bookmark) => !bookmark.isArchived).length} items`;
 
   return (
     <button className="panel-surface panel-hover flex w-full flex-col gap-5 p-6 text-left" onClick={onOpen} type="button">
@@ -138,7 +142,7 @@ export function CategoryCard({
         <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${colors[category.color]}`}>
           <Icon className="h-5 w-5" />
         </div>
-        <span className="label-meta">{category.bookmarks.filter((bookmark) => !bookmark.isArchived).length} items</span>
+        <span className="label-meta">{itemLabel}</span>
       </div>
       <div>
         <h3 className="font-headline text-2xl font-extrabold tracking-tight">{title}</h3>
@@ -180,6 +184,8 @@ export function BookmarkSection({
   onFavorite: (bookmark: BookmarkRecord) => void;
   onArchive: (bookmark: BookmarkRecord) => void;
 }) {
+  const openLinkLabel = lang === 'zh' ? '打开链接' : 'Open Link';
+
   if (bookmarks.length === 0) {
     return (
       <div className="panel-surface flex min-h-[260px] flex-col items-center justify-center rounded-[2rem] border border-dashed border-white/8 px-6 py-10 text-center">
@@ -254,7 +260,7 @@ export function BookmarkSection({
           </div>
           <p className="mb-5 flex-1 text-sm leading-6 text-on-surface/62">{bookmark.description}</p>
           <a className="ghost-button mt-auto justify-between" href={bookmark.url} rel="noreferrer" target="_blank">
-            <span>Open Link</span>
+            <span>{openLinkLabel}</span>
             <ExternalLink className="h-4 w-4" />
           </a>
         </motion.article>
@@ -267,11 +273,16 @@ export function ArchiveGrid({
   bookmarks,
   onRestore,
   onDelete,
+  lang,
 }: {
   bookmarks: BookmarkRecord[];
   onRestore: (bookmark: BookmarkRecord) => void;
   onDelete: (bookmark: BookmarkRecord) => void;
+  lang: Lang;
 }) {
+  const restoreLabel = lang === 'zh' ? '恢复' : 'Restore';
+  const deleteLabel = lang === 'zh' ? '删除' : 'Delete';
+
   return (
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {bookmarks.map((bookmark) => (
@@ -290,11 +301,11 @@ export function ArchiveGrid({
           <div className="flex gap-2">
             <button className="ghost-button flex-1 justify-center" onClick={() => onRestore(bookmark)} type="button">
               <RotateCcw className="h-4 w-4" />
-              Restore
+              {restoreLabel}
             </button>
             <button className="danger-button flex-1 justify-center" onClick={() => onDelete(bookmark)} type="button">
               <Trash2 className="h-4 w-4" />
-              Delete
+              {deleteLabel}
             </button>
           </div>
         </div>
@@ -328,10 +339,11 @@ export function ViewSwitch({
   );
 }
 
-function formatRelativeMinutes(createdAt: number, _lang: Lang) {
+function formatRelativeMinutes(createdAt: number, lang: Lang) {
   const deltaMinutes = Math.max(1, Math.round((Date.now() - createdAt) / 60000));
-  if (deltaMinutes < 60) return `${deltaMinutes}m ago`;
+  if (deltaMinutes < 60) return lang === 'zh' ? `${deltaMinutes} 分钟前` : `${deltaMinutes}m ago`;
   const hours = Math.floor(deltaMinutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  if (hours < 24) return lang === 'zh' ? `${hours} 小时前` : `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return lang === 'zh' ? `${days} 天前` : `${days}d ago`;
 }

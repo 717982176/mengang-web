@@ -83,6 +83,10 @@
       var(--background);
   }
 
+  .content-wrap {
+    @apply mx-auto w-full max-w-[1660px];
+  }
+
   .desktop-sidebar {
     @apply fixed inset-y-0 left-0 z-40 w-[16.5rem] p-5;
     background: var(--surface-container-low);
@@ -234,7 +238,7 @@
   }
 
   .section-title {
-    @apply mt-2 font-headline text-3xl font-black tracking-tight;
+    @apply mt-2 font-headline text-2xl font-black tracking-tight sm:text-3xl;
   }
 
   .text-link {
@@ -284,7 +288,7 @@
   }
 
   .theme-preview {
-    @apply rounded-[1.5rem] p-4 text-left;
+    @apply rounded-[1.5rem] p-3 text-left sm:p-4;
     background: rgb(255 255 255 / 0.03);
     border: 1px solid rgb(173 198 255 / 0.08);
   }
@@ -295,7 +299,7 @@
   }
 
   .theme-preview-canvas {
-    @apply relative mb-4 h-28 overflow-hidden rounded-2xl;
+    @apply relative mb-4 h-24 overflow-hidden rounded-2xl sm:h-28;
     border: 1px solid rgb(173 198 255 / 0.08);
   }
 
@@ -333,7 +337,7 @@
   }
 
   .mobile-nav {
-    @apply fixed inset-x-4 bottom-4 z-40 flex items-center justify-between rounded-[1.8rem] px-4 py-3 xl:hidden;
+    @apply fixed inset-x-3 bottom-3 z-40 flex items-center justify-between rounded-[1.8rem] px-3 py-2.5 sm:inset-x-4 sm:bottom-4 sm:px-4 sm:py-3 xl:hidden;
     background: var(--glass-fill);
     border: 1px solid rgb(173 198 255 / 0.1);
     box-shadow: var(--ambient-shadow);
@@ -341,7 +345,7 @@
   }
 
   .mobile-nav-item {
-    @apply flex min-w-0 flex-1 flex-col items-center gap-1 text-[10px] font-semibold text-on-surface/55;
+    @apply flex min-w-0 flex-1 flex-col items-center gap-1 text-[9px] font-semibold text-on-surface/55 sm:text-[10px];
   }
 
   .mobile-nav-item-active {
@@ -349,7 +353,7 @@
   }
 
   .mobile-nav-plus {
-    @apply -mt-8 inline-flex h-14 w-14 items-center justify-center rounded-[1.35rem] text-[#081223];
+    @apply -mt-6 inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] text-[#081223] sm:-mt-8 sm:h-14 sm:w-14 sm:rounded-[1.35rem];
     background: linear-gradient(135deg, var(--primary), var(--primary-container));
     box-shadow: 0 16px 36px -16px rgb(75 142 255 / 0.75);
   }

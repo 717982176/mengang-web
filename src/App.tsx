@@ -99,6 +99,10 @@ export default function App() {
   });
 
   const t = TRANSLATIONS[lang];
+  const toggleLang = () => setLang((prev) => (prev === 'zh' ? 'en' : 'zh'));
+  const toggleTheme = () => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  const currentLanguageLabel = lang === 'zh' ? t.languageLabelZh : t.languageLabelEn;
+  const currentThemeLabel = theme === 'dark' ? t.themeLabelDark : t.themeLabelLight;
   const allBookmarks = categories.flatMap((category) => category.bookmarks);
   const activeCategory = categories.find((category) => category.id === activeTab);
   const nonArchivedBookmarks = allBookmarks.filter((bookmark) => !bookmark.isArchived);
@@ -375,25 +379,25 @@ export default function App() {
     {
       label: t.totalAssets,
       value: nonArchivedBookmarks.length,
-      hint: 'All active bookmarks',
+      hint: t.statsActiveHint,
       icon: LayoutGrid,
     },
     {
       label: t.favoritesCount,
       value: favoriteBookmarks.length,
-      hint: 'Marked as priority',
+      hint: t.statsFavoriteHint,
       icon: Star,
     },
     {
       label: t.categoryCount,
       value: categories.filter((category) => category.id !== 'archive').length,
-      hint: 'Available sections',
+      hint: t.statsCategoryHint,
       icon: Sparkles,
     },
     {
       label: t.activeDays,
       value: user ? 18 : 4,
-      hint: 'Estimated from usage',
+      hint: t.statsDaysHint,
       icon: Zap,
     },
   ];
@@ -405,18 +409,18 @@ export default function App() {
       id: 'theme',
       title: t.switchTheme,
       subtitle: t.switchThemeDesc,
-      onSelect: () => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark')),
+      onSelect: toggleTheme,
     },
     {
       id: 'language',
       title: t.toggleLanguage,
-      subtitle: 'Switch language labels',
-      onSelect: () => setLang((prev) => (prev === 'zh' ? 'en' : 'zh')),
+      subtitle: t.paletteLanguageDesc,
+      onSelect: toggleLang,
     },
     {
       id: 'settings',
       title: t.openSettings,
-      subtitle: 'Manage theme, wallpaper, and account',
+      subtitle: t.paletteSettingsDesc,
       onSelect: () => goToTab('settings'),
     },
   ].filter((item) => `${item.title} ${item.subtitle}`.toLowerCase().includes(paletteFilter));
@@ -470,6 +474,22 @@ export default function App() {
                 <div className="mt-auto rounded-[1.5rem] bg-white/[0.03] p-4">
                   <p className="label-meta">{t.syncState}</p>
                   <p className="mt-2 text-sm text-on-surface/62">{user ? t.synced : t.localOnly}</p>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button className="ghost-button w-full justify-between px-3 py-2.5" onClick={toggleLang} type="button">
+                      <span className="inline-flex items-center gap-2">
+                        <Languages className="h-4 w-4" />
+                        {t.language}
+                      </span>
+                      <span className="text-xs font-semibold text-primary">{currentLanguageLabel}</span>
+                    </button>
+                    <button className="ghost-button w-full justify-between px-3 py-2.5" onClick={toggleTheme} type="button">
+                      <span className="inline-flex items-center gap-2">
+                        {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                        {t.appearance}
+                      </span>
+                      <span className="text-xs font-semibold text-primary">{currentThemeLabel}</span>
+                    </button>
+                  </div>
                 </div>
               </motion.aside>
             </div>
@@ -597,19 +617,19 @@ export default function App() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="space-y-2 sm:col-span-2">
                     <span className="label-meta">{t.title}</span>
-                    <input className="neo-input" placeholder="Pixiv / GitHub / Notion" value={newBookmark.title} onChange={(event) => setNewBookmark((prev) => ({ ...prev, title: event.target.value }))} />
+                    <input className="neo-input" placeholder={t.bookmarkTitlePlaceholder} value={newBookmark.title} onChange={(event) => setNewBookmark((prev) => ({ ...prev, title: event.target.value }))} />
                   </label>
                   <label className="space-y-2 sm:col-span-2">
                     <span className="label-meta">{t.url}</span>
-                    <input className="neo-input" placeholder="https://..." value={newBookmark.url} onChange={(event) => setNewBookmark((prev) => ({ ...prev, url: event.target.value }))} />
+                    <input className="neo-input" placeholder={t.bookmarkUrlPlaceholder} value={newBookmark.url} onChange={(event) => setNewBookmark((prev) => ({ ...prev, url: event.target.value }))} />
                   </label>
                   <label className="space-y-2 sm:col-span-2">
                     <span className="label-meta">{t.description}</span>
-                    <textarea className="neo-input min-h-[108px] resize-none" placeholder="Describe why this bookmark matters" value={newBookmark.description} onChange={(event) => setNewBookmark((prev) => ({ ...prev, description: event.target.value }))} />
+                    <textarea className="neo-input min-h-[108px] resize-none" placeholder={t.bookmarkDescriptionPlaceholder} value={newBookmark.description} onChange={(event) => setNewBookmark((prev) => ({ ...prev, description: event.target.value }))} />
                   </label>
                   <label className="space-y-2">
                     <span className="label-meta">{t.tag}</span>
-                    <input className="neo-input" placeholder="Design / Dev / Research" value={newBookmark.tag} onChange={(event) => setNewBookmark((prev) => ({ ...prev, tag: event.target.value }))} />
+                    <input className="neo-input" placeholder={t.bookmarkTagPlaceholder} value={newBookmark.tag} onChange={(event) => setNewBookmark((prev) => ({ ...prev, tag: event.target.value }))} />
                   </label>
                   <label className="space-y-2">
                     <span className="label-meta">{t.category}</span>
@@ -675,6 +695,7 @@ export default function App() {
         </aside>
 
         <div className="xl:pl-[17.5rem]">
+          <div className="content-wrap">
           <header className="sticky top-0 z-40 px-4 pt-4 sm:px-6 lg:px-8">
             <div className="curator-glass flex items-center gap-3 rounded-[1.8rem] px-4 py-3 sm:px-5">
               <button className="icon-button xl:hidden" onClick={() => setIsMobileMenuOpen(true)} type="button"><Menu className="h-4 w-4" /></button>
@@ -683,9 +704,15 @@ export default function App() {
                 <input className="neo-input w-full pl-11 pr-20" placeholder={t.searchPlaceholder} value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} />
                 <button className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl border border-white/8 bg-white/6 px-2.5 py-1 text-[10px] font-bold text-on-surface/55" onClick={() => { setPaletteQuery(searchQuery); setIsCommandPaletteOpen(true); }} type="button">{isMac ? 'Cmd+K' : 'Ctrl K'}</button>
               </div>
-              <div className="hidden items-center gap-2 sm:flex">
-                <button className="icon-button" onClick={() => setLang((prev) => (prev === 'zh' ? 'en' : 'zh'))} type="button"><Languages className="h-4 w-4" /></button>
-                <button className="icon-button" onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))} type="button">{theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</button>
+              <div className="hidden items-center gap-2 md:flex">
+                <button className="ghost-button h-10 px-3" onClick={toggleLang} type="button">
+                  <Languages className="h-4 w-4" />
+                  <span className="hidden lg:inline">{currentLanguageLabel}</span>
+                </button>
+                <button className="ghost-button h-10 px-3" onClick={toggleTheme} type="button">
+                  {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  <span className="hidden lg:inline">{currentThemeLabel}</span>
+                </button>
                 <button className="icon-button" onClick={() => goToTab('settings')} type="button"><Bell className="h-4 w-4" /></button>
               </div>
               <button className="profile-pill" onClick={() => goToTab('personal')} type="button">
@@ -701,7 +728,7 @@ export default function App() {
             </div>
           </header>
 
-          <main className="px-4 pb-32 pt-6 sm:px-6 lg:px-8 lg:pb-10">
+          <main className="px-4 pb-40 pt-6 sm:px-6 sm:pb-36 lg:px-8 lg:pb-10">
             {activeTab === 'dashboard' && (
               <div className="space-y-8">
                 <section className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_340px]">
@@ -744,11 +771,166 @@ export default function App() {
             )}
 
             {activeTab === 'favorites' && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.favorites}</span><h1 className="section-title">{t.favorites}</h1></div><ViewSwitch gridLabel={t.grid} listLabel={t.list} onChange={setViewMode} viewMode={viewMode} /></div><BookmarkSection addLabel={t.addBookmark} bookmarks={displayedBookmarks} emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc} emptyTitle={queryText ? t.noResults : t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onFavorite={toggleFavorite} viewMode={viewMode} /></div>}
-            {activeTab === 'archive' && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.archive}</span><h1 className="section-title">{t.archive}</h1><p className="mt-3 text-sm text-on-surface/58">{t.archiveDesc}</p></div>{archivedBookmarks.length > 0 && <button className="danger-button" onClick={() => void Promise.all(archivedBookmarks.map((bookmark) => deleteBookmark(bookmark)))} type="button"><Trash2 className="h-4 w-4" />{t.deleteAll}</button>}</div>{archivedBookmarks.length === 0 ? <div className="panel-surface flex min-h-[260px] flex-col items-center justify-center text-center"><Archive className="mb-4 h-12 w-12 text-on-surface/24" /><h3 className="text-xl font-bold">{t.emptyArchive}</h3><p className="mt-2 max-w-md text-sm text-on-surface/58">{t.archiveDesc}</p></div> : <ArchiveGrid bookmarks={archivedBookmarks} onDelete={deleteBookmark} onRestore={toggleArchive} />}</div>}
+            {activeTab === 'archive' && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.archive}</span><h1 className="section-title">{t.archive}</h1><p className="mt-3 text-sm text-on-surface/58">{t.archiveDesc}</p></div>{archivedBookmarks.length > 0 && <button className="danger-button" onClick={() => void Promise.all(archivedBookmarks.map((bookmark) => deleteBookmark(bookmark)))} type="button"><Trash2 className="h-4 w-4" />{t.deleteAll}</button>}</div>{archivedBookmarks.length === 0 ? <div className="panel-surface flex min-h-[260px] flex-col items-center justify-center text-center"><Archive className="mb-4 h-12 w-12 text-on-surface/24" /><h3 className="text-xl font-bold">{t.emptyArchive}</h3><p className="mt-2 max-w-md text-sm text-on-surface/58">{t.archiveDesc}</p></div> : <ArchiveGrid bookmarks={archivedBookmarks} lang={lang} onDelete={deleteBookmark} onRestore={toggleArchive} />}</div>}
             {activeTab === 'personal' && <div className="space-y-8"><section className="hero-panel relative overflow-hidden px-6 py-8 sm:px-8"><img alt="" className="absolute inset-0 h-full w-full object-cover opacity-28" referrerPolicy="no-referrer" src={wallpaper || 'https://picsum.photos/seed/lumina-profile/1600/900'} /><div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" /><div className="relative z-10 flex flex-col gap-6 sm:flex-row sm:items-end"><div className="h-24 w-24 overflow-hidden rounded-[1.75rem] border border-white/14 bg-white/6 shadow-[0_18px_40px_rgba(0,0,0,0.25)]">{user?.photoURL ? <img alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" src={user.photoURL} /> : <div className="flex h-full w-full items-center justify-center"><UserIcon className="h-10 w-10 text-on-surface/58" /></div>}</div><div className="min-w-0 flex-1"><span className="label-meta text-primary">{t.personalSpace}</span><h1 className="mt-3 font-headline text-4xl font-black tracking-tight">{user?.displayName || t.guest}</h1><p className="mt-3 max-w-2xl text-sm leading-7 text-on-surface/64">{user ? t.personalDesc : t.guestDesc}</p></div></div></section><section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{stats.map((stat) => <MetricCard key={stat.label} {...stat} />)}</section><section className="space-y-4"><div className="section-header"><div><span className="label-meta">{t.preview}</span><h2 className="section-title">{t.yourCollections}</h2></div><button className="primary-button" onClick={openAddModal} type="button"><Plus className="h-4 w-4" />{t.addBookmark}</button></div><div className="grid gap-5 md:grid-cols-2">{categories.filter((category) => category.id === 'work' || category.id === 'personal').map((category) => <CategoryCard category={category} key={category.id} lang={lang} onOpen={() => goToTab(category.id)} />)}</div></section></div>}
-            {activeTab === 'settings' && <div className="space-y-5"><div><span className="label-meta">{t.settings}</span><h1 className="section-title">{t.settings}</h1></div><div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(300px,0.7fr)]"><div className="space-y-5"><div className="panel-surface p-6"><div className="section-header mb-5"><div><span className="label-meta">{t.appearance}</span><h2 className="text-2xl font-headline font-extrabold tracking-tight">{t.darkTheme}</h2></div></div><div className="grid gap-4 md:grid-cols-2"><button className={`theme-preview ${theme === 'dark' ? 'theme-preview-active' : ''}`} onClick={() => setTheme('dark')} type="button"><div className="theme-preview-canvas theme-preview-dark"><div className="theme-preview-sidebar" /><div className="theme-preview-surface" /><div className="theme-preview-orb" /></div><div><p className="font-semibold">{t.darkTheme}</p><p className="mt-1 text-sm text-on-surface/58">Dark mode is aligned to the stitch Obsidian reference.</p></div></button><button className={`theme-preview ${theme === 'light' ? 'theme-preview-active' : ''}`} onClick={() => setTheme('light')} type="button"><div className="theme-preview-canvas theme-preview-light"><div className="theme-preview-sidebar" /><div className="theme-preview-surface" /></div><div><p className="font-semibold">{t.lightTheme}</p><p className="mt-1 text-sm text-on-surface/58">Light mode is preserved and only exposed through the same switch.</p></div></button></div></div><div className="panel-surface p-6"><div className="section-header mb-5"><div><span className="label-meta">{t.wallpaper}</span><h2 className="text-2xl font-headline font-extrabold tracking-tight">{t.wallpaper}</h2></div></div><div className="overflow-hidden rounded-[1.5rem] border border-white/10"><img alt="" className="h-52 w-full object-cover" referrerPolicy="no-referrer" src={wallpaper || 'https://picsum.photos/seed/lumina-wallpaper-preview/1600/900'} /></div><div className="mt-5 flex flex-col gap-3 sm:flex-row"><input className="neo-input flex-1" placeholder="https://..." value={wallpaperInput} onChange={(event) => setWallpaperInput(event.target.value)} /><button className="primary-button justify-center sm:min-w-[120px]" onClick={() => applyWallpaper(wallpaperInput)} type="button">{t.submit}</button></div><div className="mt-3 flex flex-col gap-3 sm:flex-row"><label className="ghost-button cursor-pointer justify-center sm:flex-1"><span>{t.uploadImage}</span><input accept="image/*" className="hidden" onChange={handleWallpaperUpload} type="file" /></label><button className="danger-button justify-center sm:flex-1" onClick={resetWallpaper} type="button">{t.resetWallpaper}</button></div><div className="mt-5"><p className="label-meta mb-3">{t.recommendedWallpapers}</p><div className="grid grid-cols-3 gap-3">{WALLPAPER_PRESETS.map((preset) => <button className="overflow-hidden rounded-2xl border border-white/10 transition duration-200 hover:border-primary" key={preset} onClick={() => applyWallpaper(preset)} type="button"><img alt="" className="aspect-video w-full object-cover" referrerPolicy="no-referrer" src={preset} /></button>)}</div></div></div></div><div className="space-y-5"><div className="panel-surface p-6"><p className="label-meta">{t.account}</p><h2 className="mt-2 text-2xl font-headline font-extrabold tracking-tight">{t.account}</h2><div className="mt-5 rounded-[1.5rem] bg-white/[0.03] p-4"><div className="flex items-center gap-4"><div className="h-14 w-14 overflow-hidden rounded-2xl border border-white/10 bg-white/5">{user?.photoURL ? <img alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" src={user.photoURL} /> : <div className="flex h-full w-full items-center justify-center"><UserIcon className="h-6 w-6 text-on-surface/52" /></div>}</div><div className="min-w-0"><p className="truncate font-semibold">{user?.displayName || t.guest}</p><p className="truncate text-sm text-on-surface/58">{user?.email || t.guestDesc}</p></div></div><div className="mt-4 flex gap-3">{user ? <button className="danger-button flex-1 justify-center" onClick={() => void firebaseLogOut()} type="button"><LogOut className="h-4 w-4" />{t.signOut}</button> : <button className="primary-button flex-1 justify-center" onClick={() => void signIn()} type="button"><LogIn className="h-4 w-4" />{t.signIn}</button>}</div></div></div><div className="curator-glass rounded-[2rem] p-6"><div className="mb-5 flex items-center justify-between"><div><p className="label-meta text-primary">{t.systemStatus}</p><h2 className="mt-2 text-2xl font-headline font-extrabold tracking-tight">{t.syncState}</h2></div><WandSparkles className="h-5 w-5 text-primary" /></div><div className="space-y-4 text-sm text-on-surface/62"><div className="flex items-center justify-between rounded-2xl bg-white/[0.03] px-4 py-3"><span>{t.syncState}</span><span className="font-semibold text-primary">{user ? t.synced : t.localOnly}</span></div><div className="flex items-center justify-between rounded-2xl bg-white/[0.03] px-4 py-3"><span>{t.lastSync}</span><span className="font-semibold">{user ? '2 min ago' : 'offline'}</span></div><div className="flex items-center justify-between rounded-2xl bg-white/[0.03] px-4 py-3"><span>{t.language}</span><span className="font-semibold">{lang.toUpperCase()}</span></div></div></div></div></div></div>}
+            {activeTab === 'settings' && (
+              <div className="space-y-5">
+                <div>
+                  <span className="label-meta">{t.settings}</span>
+                  <h1 className="section-title">{t.settings}</h1>
+                </div>
+                <div className="grid gap-5 xl:grid-cols-[minmax(0,1.18fr)_minmax(320px,0.82fr)]">
+                  <div className="space-y-5">
+                    <div className="panel-surface p-5 sm:p-6">
+                      <div className="mb-5">
+                        <span className="label-meta">{t.interfaceQuickActions}</span>
+                        <h2 className="mt-2 text-2xl font-headline font-extrabold tracking-tight">{t.interfaceQuickActions}</h2>
+                        <p className="mt-2 text-sm text-on-surface/58">{t.interfaceQuickActionsDesc}</p>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <button className="ghost-button min-h-[88px] w-full items-start justify-between rounded-[1.5rem] px-4 py-4 text-left" onClick={toggleTheme} type="button">
+                          <span className="space-y-2">
+                            <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                              {t.currentTheme}
+                            </span>
+                            <span className="block text-xs text-on-surface/55">{t.switchThemeDesc}</span>
+                          </span>
+                          <span className="text-sm font-semibold text-primary">{currentThemeLabel}</span>
+                        </button>
+                        <button className="ghost-button min-h-[88px] w-full items-start justify-between rounded-[1.5rem] px-4 py-4 text-left" onClick={toggleLang} type="button">
+                          <span className="space-y-2">
+                            <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                              <Languages className="h-4 w-4" />
+                              {t.currentLanguage}
+                            </span>
+                            <span className="block text-xs text-on-surface/55">{t.paletteLanguageDesc}</span>
+                          </span>
+                          <span className="text-sm font-semibold text-primary">{currentLanguageLabel}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="panel-surface p-5 sm:p-6">
+                      <div className="section-header mb-5">
+                        <div>
+                          <span className="label-meta">{t.appearance}</span>
+                          <h2 className="text-2xl font-headline font-extrabold tracking-tight">{t.darkTheme}</h2>
+                        </div>
+                      </div>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <button className={`theme-preview ${theme === 'dark' ? 'theme-preview-active' : ''}`} onClick={() => setTheme('dark')} type="button">
+                          <div className="theme-preview-canvas theme-preview-dark">
+                            <div className="theme-preview-sidebar" />
+                            <div className="theme-preview-surface" />
+                            <div className="theme-preview-orb" />
+                          </div>
+                          <div>
+                            <p className="font-semibold">{t.darkTheme}</p>
+                            <p className="mt-1 text-sm text-on-surface/58">{t.themeDarkDesc}</p>
+                          </div>
+                        </button>
+                        <button className={`theme-preview ${theme === 'light' ? 'theme-preview-active' : ''}`} onClick={() => setTheme('light')} type="button">
+                          <div className="theme-preview-canvas theme-preview-light">
+                            <div className="theme-preview-sidebar" />
+                            <div className="theme-preview-surface" />
+                          </div>
+                          <div>
+                            <p className="font-semibold">{t.lightTheme}</p>
+                            <p className="mt-1 text-sm text-on-surface/58">{t.themeLightDesc}</p>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="panel-surface p-5 sm:p-6">
+                      <div className="section-header mb-5">
+                        <div>
+                          <span className="label-meta">{t.wallpaper}</span>
+                          <h2 className="text-2xl font-headline font-extrabold tracking-tight">{t.wallpaper}</h2>
+                        </div>
+                      </div>
+                      <div className="overflow-hidden rounded-[1.5rem] border border-white/10">
+                        <img alt="" className="h-44 w-full object-cover sm:h-52" referrerPolicy="no-referrer" src={wallpaper || 'https://picsum.photos/seed/lumina-wallpaper-preview/1600/900'} />
+                      </div>
+                      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                        <input className="neo-input flex-1" placeholder={t.wallpaperPlaceholder} value={wallpaperInput} onChange={(event) => setWallpaperInput(event.target.value)} />
+                        <button className="primary-button justify-center sm:min-w-[120px]" onClick={() => applyWallpaper(wallpaperInput)} type="button">{t.submit}</button>
+                      </div>
+                      <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+                        <label className="ghost-button cursor-pointer justify-center sm:flex-1">
+                          <span>{t.uploadImage}</span>
+                          <input accept="image/*" className="hidden" onChange={handleWallpaperUpload} type="file" />
+                        </label>
+                        <button className="danger-button justify-center sm:flex-1" onClick={resetWallpaper} type="button">{t.resetWallpaper}</button>
+                      </div>
+                      <div className="mt-5">
+                        <p className="label-meta mb-3">{t.recommendedWallpapers}</p>
+                        <div className="grid grid-cols-3 gap-3">
+                          {WALLPAPER_PRESETS.map((preset) => (
+                            <button className="overflow-hidden rounded-2xl border border-white/10 transition duration-200 hover:border-primary" key={preset} onClick={() => applyWallpaper(preset)} type="button">
+                              <img alt="" className="aspect-video w-full object-cover" referrerPolicy="no-referrer" src={preset} />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-5">
+                    <div className="panel-surface p-5 sm:p-6">
+                      <p className="label-meta">{t.account}</p>
+                      <h2 className="mt-2 text-2xl font-headline font-extrabold tracking-tight">{t.account}</h2>
+                      <div className="mt-5 rounded-[1.5rem] bg-white/[0.03] p-4">
+                        <div className="flex items-center gap-4">
+                          <div className="h-14 w-14 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+                            {user?.photoURL ? <img alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" src={user.photoURL} /> : <div className="flex h-full w-full items-center justify-center"><UserIcon className="h-6 w-6 text-on-surface/52" /></div>}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold">{user?.displayName || t.guest}</p>
+                            <p className="truncate text-sm text-on-surface/58">{user?.email || t.guestDesc}</p>
+                          </div>
+                        </div>
+                        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                          {user ? <button className="danger-button flex-1 justify-center" onClick={() => void firebaseLogOut()} type="button"><LogOut className="h-4 w-4" />{t.signOut}</button> : <button className="primary-button flex-1 justify-center" onClick={() => void signIn()} type="button"><LogIn className="h-4 w-4" />{t.signIn}</button>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="curator-glass rounded-[2rem] p-5 sm:p-6">
+                      <div className="mb-5 flex items-center justify-between">
+                        <div>
+                          <p className="label-meta text-primary">{t.systemStatus}</p>
+                          <h2 className="mt-2 text-2xl font-headline font-extrabold tracking-tight">{t.syncState}</h2>
+                        </div>
+                        <WandSparkles className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="space-y-4 text-sm text-on-surface/62">
+                        <div className="flex items-center justify-between rounded-2xl bg-white/[0.03] px-4 py-3">
+                          <span>{t.syncState}</span>
+                          <span className="font-semibold text-primary">{user ? t.synced : t.localOnly}</span>
+                        </div>
+                        <div className="flex items-center justify-between rounded-2xl bg-white/[0.03] px-4 py-3">
+                          <span>{t.lastSync}</span>
+                          <span className="font-semibold">{user ? t.lastSyncValueSynced : t.lastSyncValueOffline}</span>
+                        </div>
+                        <div className="flex items-center justify-between rounded-2xl bg-white/[0.03] px-4 py-3">
+                          <span>{t.language}</span>
+                          <span className="font-semibold">{currentLanguageLabel}</span>
+                        </div>
+                        <div className="flex items-center justify-between rounded-2xl bg-white/[0.03] px-4 py-3">
+                          <span>{t.appearance}</span>
+                          <span className="font-semibold">{currentThemeLabel}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             {activeCategory && !['dashboard', 'favorites', 'archive', 'personal', 'settings'].includes(activeTab) && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.sectionCategory}</span><h1 className="section-title">{resolveCategoryTitle(activeCategory, lang)}</h1><p className="mt-3 text-sm text-on-surface/58">{resolveCategorySubtitle(activeCategory, lang)}</p></div><ViewSwitch gridLabel={t.grid} listLabel={t.list} onChange={setViewMode} viewMode={viewMode} /></div><BookmarkSection addLabel={t.addBookmark} bookmarks={displayedBookmarks} emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc} emptyTitle={queryText ? t.noResults : t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onFavorite={toggleFavorite} viewMode={viewMode} /></div>}
           </main>
+          </div>
         </div>
 
         <nav className="mobile-nav xl:hidden">
@@ -759,7 +941,7 @@ export default function App() {
           <button className={`mobile-nav-item ${activeTab === 'settings' ? 'mobile-nav-item-active' : ''}`} onClick={() => goToTab('settings')} type="button"><Settings className="h-5 w-5" /><span>{t.settings}</span></button>
         </nav>
 
-        {!isAuthReady && <div className="pointer-events-none fixed right-5 top-5 z-[130] flex items-center gap-2 rounded-full border border-primary/15 bg-background/80 px-4 py-2 text-sm text-on-surface backdrop-blur-md"><Loader2 className="h-4 w-4 animate-spin text-primary" /><span>Loading auth...</span></div>}
+        {!isAuthReady && <div className="pointer-events-none fixed right-5 top-5 z-[130] flex items-center gap-2 rounded-full border border-primary/15 bg-background/80 px-4 py-2 text-sm text-on-surface backdrop-blur-md"><Loader2 className="h-4 w-4 animate-spin text-primary" /><span>{t.loadingAuth}</span></div>}
       </div>
     </ErrorBoundary>
   );
