@@ -468,7 +468,11 @@ export default function App() {
                 type="button"
               />
               <motion.aside
-                className="panel-surface absolute bottom-4 left-4 top-4 flex w-[min(84vw,320px)] flex-col p-5"
+                className="panel-surface absolute left-4 flex w-[min(84vw,320px)] flex-col p-5"
+                style={{
+                  top: 'max(1rem, env(safe-area-inset-top))',
+                  bottom: 'max(1rem, env(safe-area-inset-bottom))',
+                }}
                 initial={{ x: -24, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: -24, opacity: 0 }}
@@ -518,7 +522,7 @@ export default function App() {
 
         <AnimatePresence>
           {isCommandPaletteOpen && (
-            <div className="fixed inset-0 z-[110] flex items-start justify-center px-4 pt-[10vh]">
+            <div className="fixed inset-0 z-[110] flex items-start justify-center px-4 pt-4 sm:pt-[10vh]">
               <motion.button
                 aria-label="Close command palette"
                 className="absolute inset-0 bg-background/60 backdrop-blur-md"
@@ -656,7 +660,8 @@ export default function App() {
                 type="button"
               />
               <motion.form
-                className="panel-surface relative w-full max-w-xl p-6 sm:p-7"
+                className="panel-surface relative w-full max-w-xl overflow-y-auto p-6 sm:p-7"
+                style={{ maxHeight: '90dvh' }}
                 initial={{ opacity: 0, y: 18, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 18, scale: 0.96 }}
@@ -763,7 +768,8 @@ export default function App() {
                 type="button"
               />
               <motion.form
-                className="panel-surface relative w-full max-w-xl p-6 sm:p-7"
+                className="panel-surface relative w-full max-w-xl overflow-y-auto p-6 sm:p-7"
+                style={{ maxHeight: '90dvh' }}
                 initial={{ opacity: 0, y: 18, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 18, scale: 0.96 }}
@@ -820,11 +826,12 @@ export default function App() {
           {notice && (
             <motion.div
               animate={{ opacity: 1, y: 0 }}
-              className={`fixed bottom-24 right-4 z-[130] w-[min(calc(100vw-2rem),28rem)] rounded-[1.5rem] border px-4 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.25)] xl:bottom-6 ${
+              className={`fixed right-4 z-[130] w-[min(calc(100vw-2rem),28rem)] rounded-[1.5rem] border px-4 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.25)] xl:bottom-6 ${
                 notice.tone === 'error'
                   ? 'border-red-400/25 bg-red-500/12 text-red-50'
                   : 'border-emerald-400/25 bg-emerald-500/12 text-on-surface'
               }`}
+              style={{ bottom: 'calc(6rem + env(safe-area-inset-bottom))' }}
               exit={{ opacity: 0, y: 12 }}
               initial={{ opacity: 0, y: 12 }}
             >

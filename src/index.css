@@ -111,10 +111,12 @@
     transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
   }
 
-  .panel-hover:hover {
-    transform: translateY(-2px);
-    border-color: rgb(173 198 255 / 0.18);
-    background: linear-gradient(180deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0.015)), var(--surface-container-high);
+  @media (hover: hover) {
+    .panel-hover:hover {
+      transform: translateY(-2px);
+      border-color: rgb(173 198 255 / 0.18);
+      background: linear-gradient(180deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0.015)), var(--surface-container-high);
+    }
   }
 
   .hero-panel {
@@ -153,15 +155,25 @@
     box-shadow: 0 14px 32px -18px rgb(75 142 255 / 0.7);
   }
 
-  .primary-button:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 18px 36px -16px rgb(75 142 255 / 0.8);
-  }
-
   .primary-button:disabled {
     opacity: 0.55;
     transform: none;
     box-shadow: none;
+  }
+
+  @media (hover: hover) {
+    .primary-button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 18px 36px -16px rgb(75 142 255 / 0.8);
+    }
+  }
+
+  /* Suppress native tap flash on all interactive elements */
+  button,
+  a,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
   .ghost-button,
@@ -180,9 +192,11 @@
     border: 1px solid rgb(173 198 255 / 0.08);
   }
 
-  .ghost-button:hover {
-    background: rgb(255 255 255 / 0.08);
-    border-color: rgb(173 198 255 / 0.18);
+  @media (hover: hover) {
+    .ghost-button:hover {
+      background: rgb(255 255 255 / 0.08);
+      border-color: rgb(173 198 255 / 0.18);
+    }
   }
 
   .danger-button {
@@ -191,17 +205,26 @@
     border: 1px solid rgb(248 113 113 / 0.18);
   }
 
-  .danger-button:hover {
-    background: rgb(239 68 68 / 0.2);
+  @media (hover: hover) {
+    .danger-button:hover {
+      background: rgb(239 68 68 / 0.2);
+    }
   }
 
   .icon-button {
-    @apply inline-flex h-10 w-10 items-center justify-center rounded-2xl;
+    @apply inline-flex h-11 w-11 items-center justify-center rounded-2xl;
     background: rgb(255 255 255 / 0.04);
     border: 1px solid rgb(173 198 255 / 0.08);
   }
 
-  .icon-button:hover,
+  @media (hover: hover) {
+    .icon-button:hover {
+      background: rgb(173 198 255 / 0.12);
+      border-color: rgb(173 198 255 / 0.18);
+      color: var(--primary);
+    }
+  }
+
   .icon-button-active {
     background: rgb(173 198 255 / 0.12);
     border-color: rgb(173 198 255 / 0.18);
@@ -266,6 +289,13 @@
     color: var(--on-surface);
     background: var(--surface-container-lowest);
     border: 1px solid rgb(173 198 255 / 0.08);
+    font-size: 16px; /* Prevent iOS auto-zoom (< 16px triggers zoom) */
+  }
+
+  @media (min-width: 640px) {
+    .neo-input {
+      font-size: 0.875rem; /* Restore text-sm on larger screens */
+    }
   }
 
   .neo-input:focus {
@@ -275,6 +305,7 @@
 
   .palette-item {
     @apply flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left;
+    min-height: 44px;
   }
 
   .palette-item:hover {
@@ -353,7 +384,7 @@
   }
 
   .mobile-nav-item {
-    @apply flex min-w-0 flex-1 flex-col items-center gap-1 text-[9px] font-semibold text-on-surface/55 sm:text-[10px];
+    @apply flex min-w-0 flex-1 flex-col items-center gap-1 text-[10px] font-semibold text-on-surface/55 sm:text-[11px];
   }
 
   .mobile-nav-item-active {
