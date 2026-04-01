@@ -54,7 +54,7 @@ export async function fetchPageMeta(url: string): Promise<PageMeta | null> {
       },
     });
 
-    const text = response.text();
+    const text = response.text;
     const data = JSON.parse(text) as PageMeta;
     if (!data.title || !data.description) return null;
     return data;
@@ -99,7 +99,7 @@ export async function suggestCategory(
       },
     });
 
-    const suggested = response.text().trim().replace(/^["']|["']$/g, '');
+    const suggested = response.text.trim().replace(/^["']|["']$/g, '');
     const valid = categories.find((c) => c.id === suggested);
     return valid ? valid.id : null;
   } catch {
@@ -154,7 +154,7 @@ export async function searchBookmarks(
       },
     });
 
-    const data = JSON.parse(response.text()) as { ids: string[] };
+    const data = JSON.parse(response.text) as { ids: string[] };
     const idSet = new Set(data.ids.slice(0, maxResults));
     // Preserve relevance order returned by Gemini
     return data.ids
