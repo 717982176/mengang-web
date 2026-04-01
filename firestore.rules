@@ -12,10 +12,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          (request.auth.token.email == "li2105253214@gmail.com" && request.auth.token.email_verified == true)
-        );
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function hasOnlyAllowedFields(fields) {
@@ -86,7 +83,7 @@ service cloud.firestore {
       return hasOnlyAllowedFields(['lang', 'theme', 'wallpaper', 'updatedAt']) &&
         data.lang in ['zh', 'en'] &&
         data.theme in ['dark', 'light'] &&
-        (data.wallpaper == null || (data.wallpaper is string && data.wallpaper.size() < 2000000));
+        (data.wallpaper == null || (data.wallpaper is string && data.wallpaper.size() < 700000));
     }
 
     match /users/{userId} {

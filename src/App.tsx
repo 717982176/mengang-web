@@ -3,11 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   Archive,
-  Bell,
   Briefcase,
   ChevronDown,
   Command,
@@ -19,6 +18,7 @@ import {
   LogOut,
   Menu,
   Moon,
+  Pencil,
   Plus,
   Search,
   Settings,
@@ -31,55 +31,21 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  setDoc,
-  writeBatch,
-} from 'firebase/firestore';
-import { auth, db, logOut as firebaseLogOut, signIn } from './firebase';
+import { type User as FirebaseUser } from 'firebase/auth';
+import { signIn } from './firebase';
 import {
   buildDefaultCategories,
-  CATEGORY_META,
+  buildFavicon,
   filterBookmarks,
-  normalizeBookmark,
+  formatRelativeTime,
   resolveCategorySubtitle,
   resolveCategoryTitle,
-  STORAGE_KEYS,
   TRANSLATIONS,
   WALLPAPER_PRESETS,
   type BookmarkRecord,
   type CategoryRecord,
-  type Lang,
-  type Theme,
   type ViewMode,
 } from './appData';
-import {
-  buildBookmarkDocument,
-  buildCategoryDocument,
-  buildPreferencesDocument,
-  buildUserProfileDocument,
-  normalizeBookmarkDocument,
-  normalizeCategoryDocument,
-  normalizePreferences,
-  type PreferencesDocument,
-  type UserPreferences,
-} from './cloudModel';
-import {
-  buildBookmarkExportJson,
-  canImportBookmarkUrl,
-  createBookmarkFingerprint,
-  normalizeBookmarkUrl,
-  parseBookmarkImportText,
-} from './bookmarkTransfer';
 import {
   ArchiveGrid,
   BookmarkSection,
@@ -89,39 +55,101 @@ import {
   MetricCard,
   ViewSwitch,
 } from './appComponents';
+import { usePreferences } from './hooks/usePreferences';
+import { useAuth } from './hooks/useAuth';
+import { useCloudSync } from './hooks/useCloudSync';
+import { useBookmarkActions } from './hooks/useBookmarkActions';
+import { useCommandPalette } from './hooks/useCommandPalette';
 
 export default function App() {
-  const [lang, setLang] = useState<Lang>('zh');
-  const [theme, setTheme] = useState<Theme>('dark');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
-  const [paletteQuery, setPaletteQuery] = useState('');
   const [isMac, setIsMac] = useState(false);
-  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [wallpaper, setWallpaper] = useState<string | null>(null);
-  const [wallpaperInput, setWallpaperInput] = useState('');
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [isAuthReady, setIsAuthReady] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<CategoryRecord[]>(buildDefaultCategories);
+  const [notice, setNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
-  const [categories, setCategories] = useState<CategoryRecord[]>(buildDefaultCategories);
-  const [newBookmark, setNewBookmark] = useState({
-    title: '',
-    url: '',
-    description: '',
-    tag: '',
-    categoryId: 'work',
-  });
-  const [notice, setNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
-  const [isSavingBookmark, setIsSavingBookmark] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-  const preferencesRef = useRef<UserPreferences>({ lang, theme, wallpaper });
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const nonArchivedBookmarksRef = useRef<BookmarkRecord[]>([]);
+  // userRef lets usePreferences read the current user without a prop that creates
+  // a circular dependency (usePreferences needs user, useAuth needs preferencesRef).
+  const userRef = useRef<FirebaseUser | null>(null);
 
+  // ─── Preferences hook ──────────────────────────────────────────────────────
+  const {
+    lang,
+    setLang,
+    theme,
+    setTheme,
+    wallpaper,
+    setWallpaper,
+    wallpaperInput,
+    setWallpaperInput,
+    preferencesRef,
+    toggleLang,
+    toggleTheme,
+    applyWallpaper,
+    resetWallpaper,
+    handleWallpaperUpload,
+    setThemePreference,
+  } = usePreferences({
+    userRef,
+    setNotice,
+    setSyncError,
+    setLastSyncAt,
+  });
+
+  // ─── Auth hook ─────────────────────────────────────────────────────────────
+  const {
+    user,
+    isAuthReady,
+    isBootstrapDone,
+    authError,
+    isSigningOut,
+    handleSignIn,
+    handleSignOut,
+  } = useAuth({
+    preferencesRef,
+    setCategories,
+    setNotice,
+    setSyncError,
+    setLastSyncAt,
+    lang,
+  });
+
+  // Keep userRef current so usePreferences.persistPreferences always reads the real user
+  userRef.current = user;
+
+  // ─── Cloud sync hook ───────────────────────────────────────────────────────
+  useCloudSync({
+    user,
+    isAuthReady,
+    isBootstrapDone,
+    preferencesRef,
+    setLang,
+    setTheme,
+    setWallpaper,
+    setCategories,
+    setSyncError,
+    setLastSyncAt,
+  });
+
+  // Notice auto-dismiss
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 3600);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  // Detect Mac
+  useEffect(() => {
+    setIsMac(/mac/i.test(navigator.platform));
+  }, []);
+
+  // ─── Derived data ──────────────────────────────────────────────────────────
   const t = TRANSLATIONS[lang];
   const currentLanguageCode = lang.toUpperCase();
   const currentLanguageLabel = lang === 'zh' ? t.languageLabelZh : t.languageLabelEn;
@@ -137,7 +165,7 @@ export default function App() {
     : syncError
       ? (lang === 'zh' ? '请检查连接或权限' : 'Check connection or permissions')
       : lastSyncAt
-        ? formatRelativeSync(lastSyncAt, lang)
+        ? formatRelativeTime(lastSyncAt, lang)
         : t.lastSyncValueSynced;
   const authTitle = lang === 'zh' ? '登录后继续使用 Lumina' : 'Sign in to continue with Lumina';
   const authDescription =
@@ -151,438 +179,122 @@ export default function App() {
   const authButtonLabel = lang === 'zh' ? '使用 Google 登录' : 'Continue with Google';
   const authErrorLabel =
     authError || (lang === 'zh' ? '登录失败，请稍后重试。' : 'Sign-in failed. Please try again.');
-  const allBookmarks = categories.flatMap((category) => category.bookmarks);
-  const activeCategory = categories.find((category) => category.id === activeTab);
-  const nonArchivedBookmarks = allBookmarks.filter((bookmark) => !bookmark.isArchived);
-  const favoriteBookmarks = nonArchivedBookmarks.filter((bookmark) => bookmark.isFavorite);
-  const archivedBookmarks = allBookmarks.filter((bookmark) => bookmark.isArchived);
-  const featuredBookmarks = Array.from(
-    new Map([...favoriteBookmarks, ...nonArchivedBookmarks].map((bookmark) => [bookmark.id, bookmark])).values(),
-  ).slice(0, 4);
+
+  const allBookmarks = useMemo(
+    () => categories.flatMap((category) => category.bookmarks),
+    [categories],
+  );
+  const activeCategory = useMemo(
+    () => categories.find((category) => category.id === activeTab),
+    [categories, activeTab],
+  );
+  const nonArchivedBookmarks = useMemo(
+    () => allBookmarks.filter((bookmark) => !bookmark.isArchived),
+    [allBookmarks],
+  );
+  // Keep a ref so the AI search effect always reads the latest value without re-triggering the debounce
+  nonArchivedBookmarksRef.current = nonArchivedBookmarks;
+  const favoriteBookmarks = useMemo(
+    () => nonArchivedBookmarks.filter((bookmark) => bookmark.isFavorite),
+    [nonArchivedBookmarks],
+  );
+  const archivedBookmarks = useMemo(
+    () => allBookmarks.filter((bookmark) => bookmark.isArchived),
+    [allBookmarks],
+  );
+  const featuredBookmarks = useMemo(
+    () =>
+      Array.from(
+        new Map([...favoriteBookmarks, ...nonArchivedBookmarks].map((bookmark) => [bookmark.id, bookmark])).values(),
+      ).slice(0, 4),
+    [favoriteBookmarks, nonArchivedBookmarks],
+  );
   const queryText = searchQuery.trim().toLowerCase();
-  const filteredCategories = categories
-    .map((category) => ({ ...category, bookmarks: filterBookmarks(category.bookmarks, queryText) }))
-    .filter((category) => {
-      if (category.bookmarks.length > 0 || !queryText) return true;
-      const text = `${resolveCategoryTitle(category, lang)} ${resolveCategorySubtitle(category, lang)}`.toLowerCase();
-      return text.includes(queryText);
-    });
+  const filteredCategories = useMemo(
+    () =>
+      categories
+        .map((category) => ({ ...category, bookmarks: filterBookmarks(category.bookmarks, queryText) }))
+        .filter((category) => {
+          if (category.bookmarks.length > 0 || !queryText) return true;
+          const text = `${resolveCategoryTitle(category, lang)} ${resolveCategorySubtitle(category, lang)}`.toLowerCase();
+          return text.includes(queryText);
+        }),
+    [categories, queryText, lang],
+  );
 
-  const displayedBookmarks =
-    activeTab === 'favorites'
-      ? filterBookmarks(favoriteBookmarks, queryText)
-      : activeTab === 'archive'
-        ? filterBookmarks(archivedBookmarks, queryText)
-        : activeTab === 'dashboard'
-          ? filterBookmarks([...nonArchivedBookmarks].sort((left, right) => right.createdAt - left.createdAt), queryText)
-          : filterBookmarks((activeCategory?.bookmarks || []).filter((bookmark) => !bookmark.isArchived), queryText);
+  const displayedBookmarks = useMemo(() => {
+    if (activeTab === 'favorites') return filterBookmarks(favoriteBookmarks, queryText);
+    if (activeTab === 'archive') return filterBookmarks(archivedBookmarks, queryText);
+    if (activeTab === 'dashboard')
+      return filterBookmarks([...nonArchivedBookmarks].sort((left, right) => right.createdAt - left.createdAt), queryText);
+    return filterBookmarks((activeCategory?.bookmarks || []).filter((bookmark) => !bookmark.isArchived), queryText);
+  }, [activeTab, favoriteBookmarks, archivedBookmarks, nonArchivedBookmarks, activeCategory, queryText]);
 
-  const navItems = [
-    { id: 'dashboard', label: t.dashboard, icon: LayoutGrid },
-    { id: 'favorites', label: t.favorites, icon: Star },
-    { id: 'work', label: resolveCategoryTitle(categories.find((item) => item.id === 'work') || buildDefaultCategories()[0], lang), icon: Briefcase },
-    { id: 'personal', label: t.personal, icon: UserIcon },
-    { id: 'archive', label: t.archive, icon: Archive },
-    { id: 'settings', label: t.settings, icon: Settings },
-  ];
+  const navItems = useMemo(
+    () => [
+      { id: 'dashboard', label: t.dashboard, icon: LayoutGrid },
+      { id: 'favorites', label: t.favorites, icon: Star },
+      { id: 'work', label: resolveCategoryTitle(categories.find((item) => item.id === 'work') || buildDefaultCategories()[0], lang), icon: Briefcase },
+      { id: 'personal', label: t.personal, icon: UserIcon },
+      { id: 'archive', label: t.archive, icon: Archive },
+      { id: 'settings', label: t.settings, icon: Settings },
+    ],
+    [categories, lang, t],
+  );
 
-  const persistPreferences = async (patch: Partial<UserPreferences>) => {
-    if (!user) return;
+  // ─── Command palette hook ──────────────────────────────────────────────────
+  const {
+    paletteQuery,
+    setPaletteQuery,
+    aiSearchResults,
+    setAiSearchResults,
+    isAiSearching,
+    isCommandPaletteOpen,
+    setIsCommandPaletteOpen,
+  } = useCommandPalette({
+    searchQuery,
+    lang,
+    nonArchivedBookmarksRef,
+    setIsMobileMenuOpen,
+    setIsAddModalOpen,
+  });
 
-    try {
-      await setDoc(
-        doc(db, `users/${user.uid}/settings/preferences`),
-        {
-          ...patch,
-          updatedAt: serverTimestamp(),
-        } satisfies Partial<PreferencesDocument> & { updatedAt: ReturnType<typeof serverTimestamp> },
-        { merge: true },
-      );
-      setSyncError(null);
-      setLastSyncAt(Date.now());
-    } catch (error) {
-      console.error('Failed to persist preferences', error);
-      setNotice({ tone: 'error', message: createMessage('设置同步失败，请稍后重试。', 'Settings sync failed. Please try again.') });
-      setSyncError(lang === 'zh' ? '设置同步失败' : 'Failed to sync settings');
-    }
-  };
-
-  const setLanguagePreference = (nextLang: Lang) => {
-    setLang(nextLang);
-    void persistPreferences({ lang: nextLang });
-  };
-
-  const setThemePreference = (nextTheme: Theme) => {
-    setTheme(nextTheme);
-    void persistPreferences({ theme: nextTheme });
-  };
-
-  const setWallpaperPreference = (nextWallpaper: string | null) => {
-    setWallpaper(nextWallpaper);
-    void persistPreferences({ wallpaper: nextWallpaper });
-  };
-
-  const toggleLang = () => setLanguagePreference(lang === 'zh' ? 'en' : 'zh');
-  const toggleTheme = () => setThemePreference(theme === 'dark' ? 'light' : 'dark');
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem(STORAGE_KEYS.theme) as Theme | null;
-    const savedLang = localStorage.getItem(STORAGE_KEYS.lang) as Lang | null;
-    const savedWallpaper = localStorage.getItem(STORAGE_KEYS.wallpaper);
-    if (savedTheme === 'dark' || savedTheme === 'light') setTheme(savedTheme);
-    if (savedLang === 'zh' || savedLang === 'en') setLang(savedLang);
-    if (savedWallpaper) {
-      setWallpaper(savedWallpaper);
-      setWallpaperInput(savedWallpaper);
-    }
-    if (!savedTheme && window.matchMedia('(prefers-color-scheme: light)').matches) setTheme('light');
-    setIsMac(/mac/i.test(navigator.platform));
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem(STORAGE_KEYS.theme, theme);
-  }, [theme]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.lang, lang);
-  }, [lang]);
-
-  useEffect(() => {
-    preferencesRef.current = { lang, theme, wallpaper };
-  }, [lang, theme, wallpaper]);
-
-  useEffect(() => {
-    if (wallpaper) {
-      localStorage.setItem(STORAGE_KEYS.wallpaper, wallpaper);
-      setWallpaperInput(wallpaper);
-      return;
-    }
-    localStorage.removeItem(STORAGE_KEYS.wallpaper);
-    setWallpaperInput('');
-  }, [wallpaper]);
-
-  useEffect(() => {
-    if (!notice) return;
-    const timer = window.setTimeout(() => setNotice(null), 3600);
-    return () => window.clearTimeout(timer);
-  }, [notice]);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      setIsAuthReady(true);
-      if (!firebaseUser) {
-        setCategories(buildDefaultCategories());
-        setSyncError(null);
-        setLastSyncAt(null);
-        return;
-      }
-
-      setAuthError(null);
-      setSyncError(null);
-
-      try {
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const userDoc = await getDoc(userRef);
-        if (!userDoc.exists()) {
-          await setDoc(userRef, {
-            ...buildUserProfileDocument(firebaseUser),
-            createdAt: serverTimestamp(),
-          });
-        } else if (!userDoc.data().role) {
-          await setDoc(
-            userRef,
-            {
-              role: 'user',
-              displayName: firebaseUser.displayName ?? userDoc.data().displayName ?? null,
-              photoURL: firebaseUser.photoURL ?? userDoc.data().photoURL ?? null,
-            },
-            { merge: true },
-          );
-        }
-
-        const categoriesCollection = collection(db, `users/${firebaseUser.uid}/categories`);
-        const existingCategories = await getDocs(categoriesCollection);
-        const existingCategoryMap = new Map(existingCategories.docs.map((entry) => [entry.id, entry.data()]));
-        for (const category of buildDefaultCategories()) {
-          const existingCategory = existingCategoryMap.get(category.id) ?? {};
-          const normalizedCategory = normalizeCategoryDocument(category.id, existingCategory, {
-            order: category.order,
-            iconKey: category.iconKey,
-            color: category.color,
-          });
-
-          await setDoc(
-            doc(categoriesCollection, category.id),
-            buildCategoryDocument(
-              {
-                ...category,
-                ...normalizedCategory,
-                bookmarks: [],
-              },
-              firebaseUser.uid,
-            ),
-          );
-        }
-
-        const bookmarksCollection = collection(db, `users/${firebaseUser.uid}/bookmarks`);
-        const existingBookmarks = await getDocs(bookmarksCollection);
-        for (const bookmarkEntry of existingBookmarks.docs) {
-          const bookmarkData = bookmarkEntry.data();
-          const normalizedBookmark = normalizeBookmarkDocument(bookmarkEntry.id, bookmarkData);
-          await setDoc(doc(bookmarksCollection, bookmarkEntry.id), {
-            ...buildBookmarkDocument(normalizedBookmark, firebaseUser.uid),
-            createdAt: bookmarkData.createdAt ?? serverTimestamp(),
-          });
-        }
-
-        const preferencesDocRef = doc(db, `users/${firebaseUser.uid}/settings/preferences`);
-        const preferencesDoc = await getDoc(preferencesDocRef);
-        if (!preferencesDoc.exists()) {
-          await setDoc(preferencesDocRef, {
-            ...buildPreferencesDocument(preferencesRef.current),
-            updatedAt: serverTimestamp(),
-          });
-        }
-      } catch (error) {
-        console.error('Failed to bootstrap profile', error);
-        setSyncError(preferencesRef.current.lang === 'zh' ? '云端初始化失败' : 'Cloud bootstrap failed');
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!user || !isAuthReady) return;
-
-    const preferencesDocRef = doc(db, `users/${user.uid}/settings/preferences`);
-    return onSnapshot(
-      preferencesDocRef,
-      (snapshot) => {
-        if (!snapshot.exists()) return;
-
-        const nextPreferences = normalizePreferences(
-          snapshot.data() as Partial<PreferencesDocument>,
-          preferencesRef.current,
-        );
-
-        setLang(nextPreferences.lang);
-        setTheme(nextPreferences.theme);
-        setWallpaper(nextPreferences.wallpaper);
-        setSyncError(null);
-        setLastSyncAt(Date.now());
-      },
-      (error) => {
-        console.error('Failed to sync preferences', error);
-        setSyncError(preferencesRef.current.lang === 'zh' ? '设置同步失败' : 'Failed to sync settings');
-      },
-    );
-  }, [isAuthReady, user]);
-
-  useEffect(() => {
-    if (!user || !isAuthReady) return;
-
-    const categoriesQuery = query(collection(db, `users/${user.uid}/categories`), orderBy('order', 'asc'));
-    const bookmarksQuery = query(collection(db, `users/${user.uid}/bookmarks`), orderBy('createdAt', 'desc'));
-    let remoteBookmarks: BookmarkRecord[] = [];
-    let remoteCategories: Omit<CategoryRecord, 'bookmarks'>[] = [];
-
-    const syncCategories = () => {
-      if (remoteCategories.length === 0) return;
-
-      setCategories(
-        remoteCategories.map((category) => ({
-          ...category,
-          bookmarks: remoteBookmarks.filter((bookmark) => bookmark.categoryId === category.id),
-        })),
-      );
-      setSyncError(null);
-      setLastSyncAt(Date.now());
-    };
-
-    const unsubscribeCategories = onSnapshot(
-      categoriesQuery,
-      (snapshot) => {
-        remoteCategories = snapshot.docs.map((entry) => {
-          const data = entry.data();
-          const meta = CATEGORY_META[entry.id as keyof typeof CATEGORY_META];
-
-          return normalizeCategoryDocument(entry.id, data, {
-            order: meta?.order ?? 99,
-            iconKey: meta?.iconKey ?? 'LayoutGrid',
-            color: meta?.color ?? 'slate',
-          });
-        });
-
-        syncCategories();
-      },
-      (error) => {
-        console.error('Failed to sync categories', error);
-        setSyncError(preferencesRef.current.lang === 'zh' ? '分类同步失败' : 'Failed to sync categories');
-      },
-    );
-
-    const unsubscribeBookmarks = onSnapshot(
-      bookmarksQuery,
-      (snapshot) => {
-        remoteBookmarks = snapshot.docs.map((entry) =>
-          normalizeBookmarkDocument(entry.id, entry.data()),
-        );
-        syncCategories();
-      },
-      (error) => {
-        console.error('Failed to sync bookmarks', error);
-        setSyncError(preferencesRef.current.lang === 'zh' ? '书签同步失败' : 'Failed to sync bookmarks');
-      },
-    );
-
-    return () => {
-      unsubscribeCategories();
-      unsubscribeBookmarks();
-    };
-  }, [isAuthReady, user]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault();
-        setPaletteQuery(searchQuery);
-        setIsCommandPaletteOpen(true);
-      }
-      if (event.key === 'Escape') {
-        setIsCommandPaletteOpen(false);
-        setIsAddModalOpen(false);
-        setIsMobileMenuOpen(false);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [searchQuery]);
-
-  const updateBookmarkInState = (bookmarkId: string, updater: (bookmark: BookmarkRecord) => BookmarkRecord) => {
-    setCategories((prev) =>
-      prev.map((category) => ({
-        ...category,
-        bookmarks: category.bookmarks.map((bookmark) =>
-          bookmark.id === bookmarkId ? updater(bookmark) : bookmark,
-        ),
-      })),
-    );
-  };
-
-  const removeBookmarkFromState = (bookmarkId: string) => {
-    setCategories((prev) =>
-      prev.map((category) => ({
-        ...category,
-        bookmarks: category.bookmarks.filter((bookmark) => bookmark.id !== bookmarkId),
-      })),
-    );
-  };
-
-  const setBookmarkValue = async (bookmark: BookmarkRecord, patch: Partial<BookmarkRecord>) => {
-    if (!user) {
-      setNotice({ tone: 'error', message: createMessage('请先登录后再操作书签。', 'Sign in before editing bookmarks.') });
-      return;
-    }
-
-    const nextBookmark = normalizeBookmark({
-      ...bookmark,
-      ...patch,
-      url: normalizeBookmarkUrl(String(patch.url ?? bookmark.url)) || bookmark.url,
-      createdAt: bookmark.createdAt,
-    });
-
-    updateBookmarkInState(bookmark.id, () => nextBookmark);
-    try {
-      await setDoc(doc(db, `users/${user.uid}/bookmarks/${bookmark.id}`), buildBookmarkDocument(nextBookmark, user.uid), {
-        merge: true,
-      });
-      setSyncError(null);
-      setLastSyncAt(Date.now());
-    } catch (error) {
-      console.error('Failed to update bookmark', error);
-      updateBookmarkInState(bookmark.id, () => bookmark);
-      setNotice({ tone: 'error', message: createMessage('书签更新失败，请稍后重试。', 'Bookmark update failed. Please try again.') });
-      setSyncError(lang === 'zh' ? '书签更新失败' : 'Failed to update bookmark');
-    }
-  };
-
-  const toggleFavorite = (bookmark: BookmarkRecord) =>
-    void setBookmarkValue(bookmark, { isFavorite: !bookmark.isFavorite });
-
-  const toggleArchive = (bookmark: BookmarkRecord) =>
-    void setBookmarkValue(bookmark, { isArchived: !bookmark.isArchived });
-
-  const deleteBookmark = async (bookmark: BookmarkRecord) => {
-    if (!user) {
-      setNotice({ tone: 'error', message: createMessage('请先登录后再操作书签。', 'Sign in before editing bookmarks.') });
-      return;
-    }
-
-    const previousCategories = categories;
-    removeBookmarkFromState(bookmark.id);
-    try {
-      await deleteDoc(doc(db, `users/${user.uid}/bookmarks/${bookmark.id}`));
-      setSyncError(null);
-      setLastSyncAt(Date.now());
-    } catch (error) {
-      console.error('Failed to delete bookmark', error);
-      setCategories(previousCategories);
-      setNotice({ tone: 'error', message: createMessage('删除失败，请稍后重试。', 'Delete failed. Please try again.') });
-      setSyncError(lang === 'zh' ? '书签删除失败' : 'Failed to delete bookmark');
-    }
-  };
-
-  const handleDeleteArchivedAll = async () => {
-    if (!user || archivedBookmarks.length === 0) return;
-
-    const previousCategories = categories;
-    setCategories((prev) =>
-      prev.map((category) => ({
-        ...category,
-        bookmarks: category.bookmarks.filter((bookmark) => !bookmark.isArchived),
-      })),
-    );
-
-    try {
-      const batch = writeBatch(db);
-      for (const bookmark of archivedBookmarks) {
-        batch.delete(doc(db, `users/${user.uid}/bookmarks/${bookmark.id}`));
-      }
-      await batch.commit();
-      setSyncError(null);
-      setLastSyncAt(Date.now());
-      setNotice({
-        tone: 'success',
-        message: createMessage(`已删除 ${archivedBookmarks.length} 个归档书签。`, `Deleted ${archivedBookmarks.length} archived bookmarks.`),
-      });
-    } catch (error) {
-      console.error('Failed to clear archive', error);
-      setCategories(previousCategories);
-      setNotice({ tone: 'error', message: createMessage('清空归档失败，请稍后重试。', 'Failed to clear archive. Please try again.') });
-      setSyncError(createMessage('批量删除失败', 'Failed to clear archive'));
-    }
-  };
-
-  const openAddModal = () => {
-    const activeCategoryId =
-      activeTab !== 'dashboard' &&
-      activeTab !== 'favorites' &&
-      activeTab !== 'archive' &&
-      activeTab !== 'settings' &&
-      categories.some((category) => category.id === activeTab)
-        ? activeTab
-        : null;
-
-    setNotice(null);
-    setNewBookmark((prev) => ({
-      ...prev,
-      categoryId: activeCategoryId || prev.categoryId,
-    }));
-    setIsCommandPaletteOpen(false);
-    setIsAddModalOpen(true);
-  };
+  // ─── Bookmark actions hook ─────────────────────────────────────────────────
+  const {
+    isSavingBookmark,
+    isImporting,
+    isAiFilling,
+    newBookmark,
+    setNewBookmark,
+    editingBookmark,
+    setEditingBookmark,
+    editForm,
+    setEditForm,
+    toggleFavorite,
+    toggleArchive,
+    deleteBookmark,
+    handleDeleteArchivedAll,
+    openAddModal,
+    openEditModal,
+    handleSaveEdit,
+    handleAddBookmark,
+    handleUrlBlur,
+    handleImportBookmarks,
+    handleExportBookmarks,
+  } = useBookmarkActions({
+    user,
+    categories,
+    setCategories,
+    allBookmarks,
+    archivedBookmarks,
+    activeTab,
+    lang,
+    setNotice,
+    setSyncError,
+    setLastSyncAt,
+    setIsAddModalOpen,
+    setIsCommandPaletteOpen,
+  });
 
   const goToTab = (tab: string) => {
     setActiveTab(tab);
@@ -590,265 +302,69 @@ export default function App() {
     setIsCommandPaletteOpen(false);
   };
 
-  const handleImportBookmarks = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    if (!user) {
-      setNotice({ tone: 'error', message: createMessage('请先登录后再导入。', 'Sign in before importing bookmarks.') });
-      return;
-    }
-
-    setIsImporting(true);
-
-    try {
-      const content = await file.text();
-      const categoryIds = categories.filter((category) => category.id !== 'archive').map((category) => category.id);
-      const parsed = parseBookmarkImportText(file.name, content, categoryIds, newBookmark.categoryId);
-      const existingFingerprints = new Set(allBookmarks.map((bookmark) => createBookmarkFingerprint(bookmark)));
-      const importedFingerprints = new Set<string>();
-      let duplicateCount = 0;
-
-      const candidates = parsed.bookmarks.filter((bookmark) => {
-        if (!canImportBookmarkUrl(bookmark.url)) {
-          return false;
-        }
-
-        const fingerprint = createBookmarkFingerprint(bookmark);
-        if (!fingerprint || existingFingerprints.has(fingerprint) || importedFingerprints.has(fingerprint)) {
-          duplicateCount += 1;
-          return false;
-        }
-
-        importedFingerprints.add(fingerprint);
-        return true;
-      });
-
-      if (candidates.length === 0) {
-        setNotice({
-          tone: parsed.invalidCount > 0 || duplicateCount > 0 ? 'error' : 'success',
-          message: createMessage(
-            `没有可导入的新书签。重复 ${duplicateCount} 个，无效 ${parsed.invalidCount} 个。`,
-            `No new bookmarks to import. ${duplicateCount} duplicates, ${parsed.invalidCount} invalid.`,
-          ),
-        });
-        return;
-      }
-
-      for (let start = 0; start < candidates.length; start += 400) {
-        const batch = writeBatch(db);
-        for (const candidate of candidates.slice(start, start + 400)) {
-          const bookmarkRef = doc(collection(db, `users/${user.uid}/bookmarks`));
-          const bookmark = normalizeBookmark({
-            id: bookmarkRef.id,
-            title: candidate.title,
-            url: candidate.url,
-            description: candidate.description,
-            tag: candidate.tag,
-            categoryId: candidate.categoryId,
-            isFavorite: candidate.isFavorite,
-            isArchived: candidate.isArchived,
-          });
-
-          batch.set(bookmarkRef, {
-            ...buildBookmarkDocument(bookmark, user.uid),
-            createdAt: serverTimestamp(),
-          });
-        }
-
-        await batch.commit();
-      }
-
-      setSyncError(null);
-      setLastSyncAt(Date.now());
-      setNotice({
-        tone: 'success',
-        message: createMessage(
-          `已导入 ${candidates.length} 个书签，跳过重复 ${duplicateCount} 个，无效 ${parsed.invalidCount} 个。`,
-          `Imported ${candidates.length} bookmarks, skipped ${duplicateCount} duplicates and ${parsed.invalidCount} invalid entries.`,
-        ),
-      });
-    } catch (error) {
-      console.error('Failed to import bookmarks', error);
-      setNotice({
-        tone: 'error',
-        message: createMessage(
-          '导入失败。请使用浏览器导出的 HTML 书签文件，或 JSON / CSV。',
-          'Import failed. Use a browser-exported HTML bookmark file, JSON, or CSV.',
-        ),
-      });
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
-  const handleExportBookmarks = () => {
-    if (allBookmarks.length === 0) {
-      setNotice({ tone: 'error', message: createMessage('当前还没有书签可以导出。', 'There are no bookmarks to export yet.') });
-      return;
-    }
-
-    const blob = new Blob([buildBookmarkExportJson(allBookmarks)], { type: 'application/json;charset=utf-8' });
-    const downloadUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = `lumina-bookmarks-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(downloadUrl);
-
-    setNotice({ tone: 'success', message: createMessage('已导出当前书签备份。', 'Exported the current bookmark backup.') });
-  };
-
-  const handleAddBookmark = async (event?: React.FormEvent<HTMLFormElement>) => {
-    event?.preventDefault();
-    if (!newBookmark.title.trim() || !newBookmark.url.trim() || !newBookmark.categoryId) {
-      setNotice({ tone: 'error', message: createMessage('请先填写标题、链接和分类。', 'Fill in the title, URL, and category first.') });
-      return;
-    }
-    if (!user) {
-      setNotice({ tone: 'error', message: createMessage('请先登录后再添加书签。', 'Sign in before adding bookmarks.') });
-      return;
-    }
-    if (!canImportBookmarkUrl(newBookmark.url)) {
-      setNotice({
-        tone: 'error',
-        message: createMessage('链接格式不正确，已支持自动补全 https://。', 'The URL is invalid. Missing https:// is handled automatically.'),
-      });
-      return;
-    }
-
-    const normalizedUrl = normalizeBookmarkUrl(newBookmark.url);
-    const fingerprint = createBookmarkFingerprint({
-      title: newBookmark.title,
-      url: normalizedUrl,
-      description: '',
-      tag: '',
-      categoryId: newBookmark.categoryId,
-      isFavorite: false,
-      isArchived: false,
-    });
-
-    if (allBookmarks.some((bookmark) => createBookmarkFingerprint(bookmark) === fingerprint)) {
-      setNotice({ tone: 'error', message: createMessage('这个书签已经存在了。', 'That bookmark already exists.') });
-      return;
-    }
-
-    setIsSavingBookmark(true);
-    try {
-      const bookmarkRef = doc(collection(db, `users/${user.uid}/bookmarks`));
-      const bookmark = normalizeBookmark({
-        id: bookmarkRef.id,
-        title: newBookmark.title,
-        url: normalizedUrl,
-        description: newBookmark.description,
-        tag: newBookmark.tag || 'General',
-        categoryId: newBookmark.categoryId,
-      });
-
-      await setDoc(bookmarkRef, {
-        ...buildBookmarkDocument(bookmark, user.uid),
-        createdAt: serverTimestamp(),
-      });
-      setNewBookmark({ title: '', url: '', description: '', tag: '', categoryId: newBookmark.categoryId });
-      setIsAddModalOpen(false);
-      setSyncError(null);
-      setLastSyncAt(Date.now());
-      setNotice({ tone: 'success', message: createMessage('书签已添加。', 'Bookmark added.') });
-    } catch (error) {
-      console.error('Failed to add bookmark', error);
-      setNotice({ tone: 'error', message: createMessage('添加失败，请稍后重试。', 'Add failed. Please try again.') });
-      setSyncError(lang === 'zh' ? '书签创建失败' : 'Failed to create bookmark');
-    } finally {
-      setIsSavingBookmark(false);
-    }
-  };
-
-  const handleSignIn = async () => {
-    setAuthError(null);
-    try {
-      await signIn();
-    } catch (error) {
-      console.error('Failed to sign in', error);
-      setAuthError(authErrorLabel);
-    }
-  };
-
-  const applyWallpaper = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    setWallpaperPreference(trimmed);
-  };
-
-  const resetWallpaper = () => {
-    setWallpaperPreference(null);
-  };
-
-  const handleWallpaperUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') applyWallpaper(reader.result);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const stats = [
-    {
-      label: t.totalAssets,
-      value: nonArchivedBookmarks.length,
-      hint: t.statsActiveHint,
-      icon: LayoutGrid,
-    },
-    {
-      label: t.favoritesCount,
-      value: favoriteBookmarks.length,
-      hint: t.statsFavoriteHint,
-      icon: Star,
-    },
-    {
-      label: t.categoryCount,
-      value: categories.filter((category) => category.id !== 'archive').length,
-      hint: t.statsCategoryHint,
-      icon: Sparkles,
-    },
-    {
-      label: t.activeDays,
-      value: user ? 18 : 4,
-      hint: t.statsDaysHint,
-      icon: Zap,
-    },
-  ];
+  const stats = useMemo(
+    () => [
+      {
+        label: t.totalAssets,
+        value: nonArchivedBookmarks.length,
+        hint: t.statsActiveHint,
+        icon: LayoutGrid,
+      },
+      {
+        label: t.favoritesCount,
+        value: favoriteBookmarks.length,
+        hint: t.statsFavoriteHint,
+        icon: Star,
+      },
+      {
+        label: t.categoryCount,
+        value: categories.filter((category) => category.id !== 'archive').length,
+        hint: t.statsCategoryHint,
+        icon: Sparkles,
+      },
+      {
+        label: t.activeDays,
+        value: (() => {
+          if (allBookmarks.length === 0) return 0;
+          const earliest = allBookmarks.reduce((min, b) =>
+            b.createdAt < min ? b.createdAt : min,
+            allBookmarks[0].createdAt,
+          );
+          const diffMs = Date.now() - new Date(earliest).getTime();
+          return Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+        })(),
+        hint: t.statsDaysHint,
+        icon: Zap,
+      },
+    ],
+    [allBookmarks, nonArchivedBookmarks, favoriteBookmarks, categories, t],
+  );
 
   const paletteFilter = paletteQuery.trim().toLowerCase();
-  const paletteActions = [
-    { id: 'add', title: t.addBookmark, subtitle: t.addBookmarkDesc, onSelect: openAddModal },
-    {
-      id: 'theme',
-      title: t.switchTheme,
-      subtitle: t.switchThemeDesc,
-      onSelect: toggleTheme,
-    },
-    {
-      id: 'language',
-      title: t.toggleLanguage,
-      subtitle: t.paletteLanguageDesc,
-      onSelect: toggleLang,
-    },
-    {
-      id: 'settings',
-      title: t.openSettings,
-      subtitle: t.paletteSettingsDesc,
-      onSelect: () => goToTab('settings'),
-    },
-  ].filter((item) => `${item.title} ${item.subtitle}`.toLowerCase().includes(paletteFilter));
+  const paletteActions = useMemo(
+    () =>
+      [
+        { id: 'add', title: t.addBookmark, subtitle: t.addBookmarkDesc, onSelect: openAddModal },
+        { id: 'theme', title: t.switchTheme, subtitle: t.switchThemeDesc, onSelect: toggleTheme },
+        { id: 'language', title: t.toggleLanguage, subtitle: t.paletteLanguageDesc, onSelect: toggleLang },
+        { id: 'settings', title: t.openSettings, subtitle: t.paletteSettingsDesc, onSelect: () => goToTab('settings') },
+      ].filter((item) => `${item.title} ${item.subtitle}`.toLowerCase().includes(paletteFilter)),
+    // openAddModal / toggleTheme / toggleLang / goToTab are stable inline functions; only text content and filter matter
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [paletteFilter, t],
+  );
 
-  const paletteNav = navItems.filter((item) => item.label.toLowerCase().includes(paletteFilter));
-  const paletteBookmarks = nonArchivedBookmarks
-    .filter((bookmark) => filterBookmarks([bookmark], paletteFilter).length > 0)
-    .slice(0, 6);
+  const paletteNav = useMemo(
+    () => navItems.filter((item) => item.label.toLowerCase().includes(paletteFilter)),
+    [navItems, paletteFilter],
+  );
+  const paletteBookmarks = useMemo(
+    () =>
+      nonArchivedBookmarks
+        .filter((bookmark) => filterBookmarks([bookmark], paletteFilter).length > 0)
+        .slice(0, 6),
+    [nonArchivedBookmarks, paletteFilter],
+  );
 
   if (!isAuthReady) {
     return (
@@ -906,7 +422,7 @@ export default function App() {
                     </button>
                   </div>
                   <p className="mt-5 text-sm text-on-surface/55">{authHint}</p>
-                  {authError && <p className="mt-4 text-sm font-medium text-red-300">{authError}</p>}
+                  {authError && <p className="mt-4 text-sm font-medium text-red-300">{authErrorLabel}</p>}
                 </div>
                 <div className="hero-orb hero-orb-primary" />
                 <div className="hero-orb hero-orb-secondary" />
@@ -1022,6 +538,7 @@ export default function App() {
                   <div className="flex items-center gap-3">
                     <Search className="h-5 w-5 text-primary" />
                     <input
+                      autoComplete="off"
                       autoFocus
                       className="w-full bg-transparent text-lg font-medium outline-none placeholder:text-on-surface/35"
                       placeholder={t.commandPlaceholder}
@@ -1069,7 +586,7 @@ export default function App() {
                         }}
                         type="button"
                       >
-                        <img alt="" className="h-9 w-9 rounded-xl border border-white/10 object-cover" referrerPolicy="no-referrer" src={bookmark.icon} />
+                        <img alt={bookmark.title} className="h-9 w-9 rounded-xl border border-white/10 object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).src = buildFavicon('', bookmark.title); }} referrerPolicy="no-referrer" src={bookmark.icon} />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold">{bookmark.title}</p>
                           <p className="truncate text-xs text-on-surface/55">{bookmark.description}</p>
@@ -1077,13 +594,49 @@ export default function App() {
                         <ExternalLink className="h-4 w-4 text-on-surface/45" />
                       </button>
                     ))}
-                    {paletteActions.length === 0 && paletteNav.length === 0 && paletteBookmarks.length === 0 && (
-                      <div className="px-2 py-8 text-center text-sm text-on-surface/55">{t.commandEmpty}</div>
+                    {paletteActions.length === 0 && paletteNav.length === 0 && paletteBookmarks.length === 0 && aiSearchResults.length === 0 && !isAiSearching && (
+                      <div className="px-2 py-8 text-center text-sm text-on-surface/55">
+                        <p>{t.commandEmpty}</p>
+                        <p className="mt-2 text-xs text-on-surface/40">{t.aiSearchHint}</p>
+                      </div>
+                    )}
+                    {isAiSearching && (
+                      <div className="flex items-center gap-2 px-2 py-6 text-sm text-primary">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {t.aiSearching}
+                      </div>
+                    )}
+                    {aiSearchResults.length > 0 && (
+                      <>
+                        <p className="label-meta flex items-center gap-1.5 px-2 pt-4">
+                          <WandSparkles className="h-3 w-3 text-primary" />
+                          {t.aiSearchLabel}
+                        </p>
+                        {aiSearchResults.map((bookmark) => (
+                          <button
+                            className="palette-item"
+                            key={bookmark.id}
+                            onClick={() => {
+                              setIsCommandPaletteOpen(false);
+                              setAiSearchResults([]);
+                              window.open(bookmark.url, '_blank', 'noopener,noreferrer');
+                            }}
+                            type="button"
+                          >
+                            <img alt={bookmark.title} className="h-9 w-9 rounded-xl border border-white/10 object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).src = buildFavicon('', bookmark.title); }} referrerPolicy="no-referrer" src={bookmark.icon} />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold">{bookmark.title}</p>
+                              <p className="truncate text-xs text-on-surface/55">{bookmark.description}</p>
+                            </div>
+                            <ExternalLink className="h-4 w-4 text-on-surface/45" />
+                          </button>
+                        ))}
+                      </>
                     )}
                   </div>
                 </div>
                 <div className="border-t border-white/8 bg-white/[0.02] px-5 py-3 text-xs text-on-surface/48">
-                  {isMac ? 'Cmd+K' : 'Ctrl+K'} | {t.addHint}
+                  {isMac ? 'Cmd+K' : 'Ctrl+K'} | {t.addHint} | ? {lang === 'zh' ? 'AI 搜索' : 'AI search'}
                 </div>
               </motion.div>
             </div>
@@ -1121,19 +674,34 @@ export default function App() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="space-y-2 sm:col-span-2">
                     <span className="label-meta">{t.title}</span>
-                    <input className="neo-input" placeholder={t.bookmarkTitlePlaceholder} value={newBookmark.title} onChange={(event) => setNewBookmark((prev) => ({ ...prev, title: event.target.value }))} />
+                    <input autoComplete="off" className="neo-input" placeholder={t.bookmarkTitlePlaceholder} value={newBookmark.title} onChange={(event) => setNewBookmark((prev) => ({ ...prev, title: event.target.value }))} />
                   </label>
                   <label className="space-y-2 sm:col-span-2">
-                    <span className="label-meta">{t.url}</span>
-                    <input className="neo-input" placeholder={t.bookmarkUrlPlaceholder} value={newBookmark.url} onChange={(event) => setNewBookmark((prev) => ({ ...prev, url: event.target.value }))} />
+                    <div className="flex items-center justify-between">
+                      <span className="label-meta">{t.url}</span>
+                      {isAiFilling && (
+                        <span className="flex items-center gap-1.5 text-[10px] text-primary">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          {t.aiAutoFill}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      autoComplete="url"
+                      className="neo-input"
+                      placeholder={t.bookmarkUrlPlaceholder}
+                      value={newBookmark.url}
+                      onChange={(event) => setNewBookmark((prev) => ({ ...prev, url: event.target.value }))}
+                      onBlur={() => void handleUrlBlur()}
+                    />
                   </label>
                   <label className="space-y-2 sm:col-span-2">
                     <span className="label-meta">{t.description}</span>
-                    <textarea className="neo-input min-h-[108px] resize-none" placeholder={t.bookmarkDescriptionPlaceholder} value={newBookmark.description} onChange={(event) => setNewBookmark((prev) => ({ ...prev, description: event.target.value }))} />
+                    <textarea autoComplete="off" className="neo-input min-h-[108px] resize-none" placeholder={t.bookmarkDescriptionPlaceholder} value={newBookmark.description} onChange={(event) => setNewBookmark((prev) => ({ ...prev, description: event.target.value }))} />
                   </label>
                   <label className="space-y-2">
                     <span className="label-meta">{t.tag}</span>
-                    <input className="neo-input" placeholder={t.bookmarkTagPlaceholder} value={newBookmark.tag} onChange={(event) => setNewBookmark((prev) => ({ ...prev, tag: event.target.value }))} />
+                    <input autoComplete="off" className="neo-input" placeholder={t.bookmarkTagPlaceholder} value={newBookmark.tag} onChange={(event) => setNewBookmark((prev) => ({ ...prev, tag: event.target.value }))} />
                   </label>
                   <label className="space-y-2">
                     <span className="label-meta">{t.category}</span>
@@ -1174,6 +742,72 @@ export default function App() {
                   <button className="ghost-button justify-center" onClick={() => setIsAddModalOpen(false)} type="button">{t.cancel}</button>
                   <button className="primary-button justify-center" disabled={isSavingBookmark || !newBookmark.title.trim() || !newBookmark.url.trim()} type="submit">
                     {isSavingBookmark ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    {isSavingBookmark ? createMessage('保存中...', 'Saving...') : t.submit}
+                  </button>
+                </div>
+              </motion.form>
+            </div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {editingBookmark && (
+            <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
+              <motion.button
+                aria-label="Close edit modal"
+                className="absolute inset-0 bg-background/60 backdrop-blur-md"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setEditingBookmark(null)}
+                type="button"
+              />
+              <motion.form
+                className="panel-surface relative w-full max-w-xl p-6 sm:p-7"
+                initial={{ opacity: 0, y: 18, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 18, scale: 0.96 }}
+                onSubmit={(event) => void handleSaveEdit(event)}
+              >
+                <div className="mb-6 flex items-center justify-between">
+                  <div>
+                    <p className="label-meta">{createMessage('编辑书签', 'Edit Bookmark')}</p>
+                    <h2 className="mt-2 font-headline text-2xl font-extrabold tracking-tight">{createMessage('编辑书签', 'Edit Bookmark')}</h2>
+                  </div>
+                  <button className="icon-button" onClick={() => setEditingBookmark(null)} type="button">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="space-y-2 sm:col-span-2">
+                    <span className="label-meta">{t.title}</span>
+                    <input autoComplete="off" className="neo-input" placeholder={t.bookmarkTitlePlaceholder} value={editForm.title} onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))} />
+                  </label>
+                  <label className="space-y-2 sm:col-span-2">
+                    <span className="label-meta">{t.url}</span>
+                    <input autoComplete="url" className="neo-input" placeholder={t.bookmarkUrlPlaceholder} value={editForm.url} onChange={(e) => setEditForm((prev) => ({ ...prev, url: e.target.value }))} />
+                  </label>
+                  <label className="space-y-2 sm:col-span-2">
+                    <span className="label-meta">{t.description}</span>
+                    <textarea autoComplete="off" className="neo-input min-h-[80px] resize-none" placeholder={t.bookmarkDescriptionPlaceholder} value={editForm.description} onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))} />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="label-meta">{t.tag}</span>
+                    <input autoComplete="off" className="neo-input" placeholder={t.bookmarkTagPlaceholder} value={editForm.tag} onChange={(e) => setEditForm((prev) => ({ ...prev, tag: e.target.value }))} />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="label-meta">{t.category}</span>
+                    <select className="neo-input appearance-none" value={editForm.categoryId} onChange={(e) => setEditForm((prev) => ({ ...prev, categoryId: e.target.value }))}>
+                      {categories.filter((c) => c.id !== 'archive').map((c) => (
+                        <option key={c.id} value={c.id}>{resolveCategoryTitle(c, lang)}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                  <button className="ghost-button justify-center" onClick={() => setEditingBookmark(null)} type="button">{t.cancel}</button>
+                  <button className="primary-button justify-center" disabled={isSavingBookmark || !editForm.title.trim() || !editForm.url.trim()} type="submit">
+                    {isSavingBookmark ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
                     {isSavingBookmark ? createMessage('保存中...', 'Saving...') : t.submit}
                   </button>
                 </div>
@@ -1238,7 +872,7 @@ export default function App() {
               </div>
               <div className="flex gap-2">
                 <button className="ghost-button flex-1 justify-center" onClick={() => goToTab('personal')} type="button"><UserIcon className="h-4 w-4" />{t.personal}</button>
-                {user ? <button className="icon-button" onClick={() => void firebaseLogOut()} type="button"><LogOut className="h-4 w-4" /></button> : <button className="icon-button" onClick={() => void signIn()} type="button"><LogIn className="h-4 w-4" /></button>}
+                {user ? <button aria-label={t.signOut} className="icon-button" disabled={isSigningOut} onClick={() => void handleSignOut()} type="button">{isSigningOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}</button> : <button className="icon-button" onClick={() => void signIn()} type="button"><LogIn className="h-4 w-4" /></button>}
               </div>
             </div>
           </div>
@@ -1255,14 +889,14 @@ export default function App() {
                 <button className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl border border-white/8 bg-white/6 px-2.5 py-1 text-[10px] font-bold text-on-surface/55" onClick={() => { setPaletteQuery(searchQuery); setIsCommandPaletteOpen(true); }} type="button">{isMac ? 'Cmd+K' : 'Ctrl K'}</button>
               </div>
               <div className="hidden items-center gap-2 md:flex">
-                <button className="ghost-button h-10 px-3" onClick={toggleLang} type="button">
+                <button aria-label={lang === 'zh' ? `切换语言（当前：${currentLanguageLabel}）` : `Toggle language (current: ${currentLanguageLabel})`} className="ghost-button h-10 px-3" onClick={toggleLang} type="button">
                   <Languages className="h-4 w-4" />
                   <span className="text-sm font-semibold text-on-surface">{currentLanguageCode}</span>
                 </button>
-                <button className="icon-button" onClick={toggleTheme} type="button">
+                <button aria-label={lang === 'zh' ? `切换主题（当前：${currentThemeLabel}）` : `Toggle theme (current: ${currentThemeLabel})`} className="icon-button" onClick={toggleTheme} type="button">
                   {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 </button>
-                <button className="icon-button" onClick={() => goToTab('settings')} type="button"><Bell className="h-4 w-4" /></button>
+                <button className="icon-button" onClick={() => goToTab('settings')} type="button"><Settings className="h-4 w-4" /></button>
               </div>
               <button className="profile-pill" onClick={() => goToTab('personal')} type="button">
                 <div className="h-8 w-8 overflow-hidden rounded-xl border border-white/10 bg-white/6">
@@ -1302,8 +936,23 @@ export default function App() {
                   <div className="curator-glass rounded-[2rem] p-6">
                     <div className="mb-5 flex items-center justify-between"><div><p className="label-meta text-primary">{t.systemStatus}</p><p className="mt-2 text-sm text-on-surface/55">{t.syncState}</p></div><WandSparkles className="h-5 w-5 text-primary" /></div>
                     <div className="space-y-5">
-                      <div className="rounded-3xl bg-white/[0.03] p-4"><p className="label-meta">{t.networkLoad}</p><p className="mt-2 text-3xl font-headline font-black">{user ? '14.2 Gbps' : '1.2 Gbps'}</p></div>
-                      <div className="rounded-3xl bg-white/[0.03] p-4"><div className="mb-2 flex items-center justify-between text-xs text-on-surface/52"><span>{t.processing}</span><span>{user ? 22 : 43}%</span></div><div className="h-2 overflow-hidden rounded-full bg-white/6"><div className="h-full rounded-full bg-gradient-to-r from-primary to-primary-container" style={{ width: `${user ? 22 : 43}%` }} /></div></div>
+                      <div className="rounded-3xl bg-white/[0.03] p-4">
+                        <p className="label-meta">{t.syncState}</p>
+                        <p className="mt-2 text-2xl font-headline font-black">{syncStateLabel}</p>
+                        <p className="mt-1 text-xs text-on-surface/50">{t.lastSync}：{lastSyncLabel}</p>
+                      </div>
+                      <div className="rounded-3xl bg-white/[0.03] p-4">
+                        <div className="mb-2 flex items-center justify-between text-xs text-on-surface/52">
+                          <span>{lang === 'zh' ? '书签总量' : 'Total Bookmarks'}</span>
+                          <span>{nonArchivedBookmarks.length}</span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-white/6">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-primary to-primary-container transition-all duration-700"
+                            style={{ width: `${Math.min(100, (nonArchivedBookmarks.length / Math.max(1, nonArchivedBookmarks.length + archivedBookmarks.length)) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
                       <button className="ghost-button w-full justify-center" onClick={() => goToTab('settings')} type="button">{t.diagnostics}</button>
                     </div>
                   </div>
@@ -1311,7 +960,7 @@ export default function App() {
                 <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{stats.map((stat) => <MetricCard key={stat.label} {...stat} />)}</section>
                 <section className="space-y-4">
                   <div className="section-header"><div><span className="label-meta">{t.featured}</span><h2 className="section-title">{t.pinned}</h2></div><button className="text-link" onClick={() => goToTab('favorites')} type="button">{t.viewAll}</button></div>
-                  <BookmarkSection addLabel={t.addBookmark} bookmarks={featuredBookmarks} emptyBody={t.noBookmarksDesc} emptyTitle={t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onDelete={deleteBookmark} onFavorite={toggleFavorite} viewMode="grid" />
+                  <BookmarkSection addLabel={t.addBookmark} bookmarks={featuredBookmarks} emptyBody={t.noBookmarksDesc} emptyTitle={t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onDelete={deleteBookmark} onEdit={openEditModal} onFavorite={toggleFavorite} viewMode="grid" />
                 </section>
                 <section className="space-y-4">
                   <div className="section-header"><div><span className="label-meta">{t.sectionCategory}</span><h2 className="section-title">{t.collections}</h2></div></div>
@@ -1319,12 +968,12 @@ export default function App() {
                 </section>
                 <section className="space-y-4">
                   <div className="section-header"><div><span className="label-meta">{t.preview}</span><h2 className="section-title">{t.recentBookmarks}</h2></div><ViewSwitch gridLabel={t.grid} listLabel={t.list} onChange={setViewMode} viewMode={viewMode} /></div>
-                  <BookmarkSection addLabel={t.addBookmark} bookmarks={displayedBookmarks.slice(0, 9)} emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc} emptyTitle={queryText ? t.noResults : t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onDelete={deleteBookmark} onFavorite={toggleFavorite} viewMode={viewMode} />
+                  <BookmarkSection addLabel={t.addBookmark} bookmarks={displayedBookmarks.slice(0, 9)} emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc} emptyTitle={queryText ? t.noResults : t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onDelete={deleteBookmark} onEdit={openEditModal} onFavorite={toggleFavorite} viewMode={viewMode} />
                 </section>
               </div>
             )}
 
-            {activeTab === 'favorites' && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.favorites}</span><h1 className="section-title">{t.favorites}</h1></div><ViewSwitch gridLabel={t.grid} listLabel={t.list} onChange={setViewMode} viewMode={viewMode} /></div><BookmarkSection addLabel={t.addBookmark} bookmarks={displayedBookmarks} emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc} emptyTitle={queryText ? t.noResults : t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onDelete={deleteBookmark} onFavorite={toggleFavorite} viewMode={viewMode} /></div>}
+            {activeTab === 'favorites' && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.favorites}</span><h1 className="section-title">{t.favorites}</h1></div><ViewSwitch gridLabel={t.grid} listLabel={t.list} onChange={setViewMode} viewMode={viewMode} /></div><BookmarkSection addLabel={t.addBookmark} bookmarks={displayedBookmarks} emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc} emptyTitle={queryText ? t.noResults : t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onDelete={deleteBookmark} onEdit={openEditModal} onFavorite={toggleFavorite} viewMode={viewMode} /></div>}
             {activeTab === 'archive' && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.archive}</span><h1 className="section-title">{t.archive}</h1><p className="mt-3 text-sm text-on-surface/58">{t.archiveDesc}</p></div>{archivedBookmarks.length > 0 && <button className="danger-button" onClick={() => void handleDeleteArchivedAll()} type="button"><Trash2 className="h-4 w-4" />{t.deleteAll}</button>}</div>{archivedBookmarks.length === 0 ? <div className="panel-surface flex min-h-[260px] flex-col items-center justify-center text-center"><Archive className="mb-4 h-12 w-12 text-on-surface/24" /><h3 className="text-xl font-bold">{t.emptyArchive}</h3><p className="mt-2 max-w-md text-sm text-on-surface/58">{t.archiveDesc}</p></div> : <ArchiveGrid bookmarks={archivedBookmarks} lang={lang} onDelete={deleteBookmark} onRestore={toggleArchive} />}</div>}
             {activeTab === 'personal' && <div className="space-y-8"><section className="hero-panel relative overflow-hidden px-6 py-8 sm:px-8"><img alt="" className="absolute inset-0 h-full w-full object-cover opacity-28" referrerPolicy="no-referrer" src={wallpaper || 'https://picsum.photos/seed/lumina-profile/1600/900'} /><div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" /><div className="relative z-10 flex flex-col gap-6 sm:flex-row sm:items-end"><div className="h-24 w-24 overflow-hidden rounded-[1.75rem] border border-white/14 bg-white/6 shadow-[0_18px_40px_rgba(0,0,0,0.25)]">{user?.photoURL ? <img alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" src={user.photoURL} /> : <div className="flex h-full w-full items-center justify-center"><UserIcon className="h-10 w-10 text-on-surface/58" /></div>}</div><div className="min-w-0 flex-1"><span className="label-meta text-primary">{t.personalSpace}</span><h1 className="mt-3 font-headline text-4xl font-black tracking-tight">{user?.displayName || t.guest}</h1><p className="mt-3 max-w-2xl text-sm leading-7 text-on-surface/64">{user ? t.personalDesc : t.guestDesc}</p></div></div></section><section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{stats.map((stat) => <MetricCard key={stat.label} {...stat} />)}</section><section className="space-y-4"><div className="section-header"><div><span className="label-meta">{t.preview}</span><h2 className="section-title">{t.yourCollections}</h2></div><button className="primary-button" onClick={openAddModal} type="button"><Plus className="h-4 w-4" />{t.addBookmark}</button></div><div className="grid gap-5 md:grid-cols-2">{categories.filter((category) => category.id === 'work' || category.id === 'personal').map((category) => <CategoryCard category={category} key={category.id} lang={lang} onOpen={() => goToTab(category.id)} />)}</div></section></div>}
             {activeTab === 'settings' && (
@@ -1430,7 +1079,7 @@ export default function App() {
                           </div>
                         </div>
                         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                          {user ? <button className="danger-button flex-1 justify-center" onClick={() => void firebaseLogOut()} type="button"><LogOut className="h-4 w-4" />{t.signOut}</button> : <button className="primary-button flex-1 justify-center" onClick={() => void signIn()} type="button"><LogIn className="h-4 w-4" />{t.signIn}</button>}
+                          {user ? <button className="danger-button flex-1 justify-center" disabled={isSigningOut} onClick={() => void handleSignOut()} type="button">{isSigningOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}{isSigningOut ? createMessage('退出中...', 'Signing out...') : t.signOut}</button> : <button className="primary-button flex-1 justify-center" onClick={() => void signIn()} type="button"><LogIn className="h-4 w-4" />{t.signIn}</button>}
                         </div>
                       </div>
                     </div>
@@ -1466,7 +1115,7 @@ export default function App() {
                 </div>
               </div>
             )}
-            {activeCategory && !['dashboard', 'favorites', 'archive', 'personal', 'settings'].includes(activeTab) && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.sectionCategory}</span><h1 className="section-title">{resolveCategoryTitle(activeCategory, lang)}</h1><p className="mt-3 text-sm text-on-surface/58">{resolveCategorySubtitle(activeCategory, lang)}</p></div><ViewSwitch gridLabel={t.grid} listLabel={t.list} onChange={setViewMode} viewMode={viewMode} /></div><BookmarkSection addLabel={t.addBookmark} bookmarks={displayedBookmarks} emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc} emptyTitle={queryText ? t.noResults : t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onDelete={deleteBookmark} onFavorite={toggleFavorite} viewMode={viewMode} /></div>}
+            {activeCategory && !['dashboard', 'favorites', 'archive', 'personal', 'settings'].includes(activeTab) && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.sectionCategory}</span><h1 className="section-title">{resolveCategoryTitle(activeCategory, lang)}</h1><p className="mt-3 text-sm text-on-surface/58">{resolveCategorySubtitle(activeCategory, lang)}</p></div><ViewSwitch gridLabel={t.grid} listLabel={t.list} onChange={setViewMode} viewMode={viewMode} /></div><BookmarkSection addLabel={t.addBookmark} bookmarks={displayedBookmarks} emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc} emptyTitle={queryText ? t.noResults : t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onDelete={deleteBookmark} onEdit={openEditModal} onFavorite={toggleFavorite} viewMode={viewMode} /></div>}
           </main>
           </div>
         </div>
@@ -1481,19 +1130,4 @@ export default function App() {
       </div>
     </ErrorBoundary>
   );
-}
-
-function formatRelativeSync(timestamp: number, lang: Lang) {
-  const deltaMinutes = Math.max(1, Math.round((Date.now() - timestamp) / 60000));
-  if (deltaMinutes < 60) {
-    return lang === 'zh' ? `${deltaMinutes} 分钟前` : `${deltaMinutes}m ago`;
-  }
-
-  const hours = Math.floor(deltaMinutes / 60);
-  if (hours < 24) {
-    return lang === 'zh' ? `${hours} 小时前` : `${hours}h ago`;
-  }
-
-  const days = Math.floor(hours / 24);
-  return lang === 'zh' ? `${days} 天前` : `${days}d ago`;
 }

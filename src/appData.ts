@@ -32,7 +32,6 @@ export const STORAGE_KEYS = {
   theme: 'lumina-theme',
   lang: 'lumina-lang',
   wallpaper: 'lumina-wallpaper',
-  guestCategories: 'lumina-guest-categories',
 } as const;
 
 export const WALLPAPER_PRESETS = [
@@ -141,8 +140,6 @@ export const TRANSLATIONS = {
     darkTheme: '夜间主题',
     lightTheme: '白天主题',
     systemStatus: '系统状态',
-    networkLoad: '网络负载',
-    processing: '处理负载',
     diagnostics: '展开诊断',
     guest: '访客模式',
     guestDesc: '未登录也可以先本地使用，之后再同步到你的账户。',
@@ -200,6 +197,12 @@ export const TRANSLATIONS = {
     languageLabelEn: '英文',
     themeLabelDark: '夜间',
     themeLabelLight: '白天',
+    aiAutoFill: 'AI 正在识别页面信息...',
+    aiAutoFillDone: 'AI 已自动填充标题和描述',
+    aiAutoFillFail: 'AI 无法识别，请手动填写',
+    aiSearchHint: '输入 ? 开头进行 AI 语义搜索',
+    aiSearching: 'AI 正在搜索...',
+    aiSearchLabel: 'AI 语义搜索结果',
   },
   en: {
     dashboard: 'Dashboard',
@@ -241,8 +244,6 @@ export const TRANSLATIONS = {
     darkTheme: 'Dark Theme',
     lightTheme: 'Light Theme',
     systemStatus: 'System Status',
-    networkLoad: 'Network Load',
-    processing: 'Processing',
     diagnostics: 'Expand Diagnostics',
     guest: 'Guest Mode',
     guestDesc: 'You can interact locally first, then sign in later to sync everything.',
@@ -300,6 +301,12 @@ export const TRANSLATIONS = {
     languageLabelEn: 'English',
     themeLabelDark: 'Dark',
     themeLabelLight: 'Light',
+    aiAutoFill: 'AI is reading the page...',
+    aiAutoFillDone: 'AI filled in title and description',
+    aiAutoFillFail: 'AI could not read the page, please fill in manually',
+    aiSearchHint: 'Start with ? for AI semantic search',
+    aiSearching: 'AI is searching...',
+    aiSearchLabel: 'AI Semantic Results',
   },
 } as const;
 
@@ -490,24 +497,15 @@ export function resolveCategorySubtitle(category: CategoryRecord, lang: Lang) {
 export function filterBookmarks(bookmarks: BookmarkRecord[], query: string) {
   if (!query) return bookmarks;
   return bookmarks.filter((bookmark) =>
-    `${bookmark.title} ${bookmark.description} ${bookmark.tag}`.toLowerCase().includes(query),
+    `${bookmark.title} ${bookmark.url} ${bookmark.description} ${bookmark.tag}`.toLowerCase().includes(query),
   );
 }
 
-export function readGuestCategories() {
-  const raw = localStorage.getItem(STORAGE_KEYS.guestCategories);
-  if (!raw) return buildDefaultCategories();
-  try {
-    const parsed = JSON.parse(raw) as CategoryRecord[];
-    return parsed.map((category) => ({
-      ...category,
-      bookmarks: (category.bookmarks || []).map((bookmark) => normalizeBookmark(bookmark)),
-    }));
-  } catch {
-    return buildDefaultCategories();
-  }
-}
-
-export function persistGuestCategories(categories: CategoryRecord[]) {
-  localStorage.setItem(STORAGE_KEYS.guestCategories, JSON.stringify(categories));
+export function formatRelativeTime(timestamp: number, lang: Lang) {
+  const deltaMinutes = Math.max(1, Math.round((Date.now() - timestamp) / 60000));
+  if (deltaMinutes < 60) return lang === 'zh' ? `${deltaMinutes} 分钟前` : `${deltaMinutes}m ago`;
+  const hours = Math.floor(deltaMinutes / 60);
+  if (hours < 24) return lang === 'zh' ? `${hours} 小时前` : `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return lang === 'zh' ? `${days} 天前` : `${days}d ago`;
 }

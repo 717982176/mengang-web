@@ -11,6 +11,7 @@ import {
   List,
   MessageSquare,
   Palette,
+  Pencil,
   Play,
   Plus,
   RotateCcw,
@@ -21,7 +22,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { BookmarkRecord, CategoryRecord, Lang } from './appData';
-import { resolveCategorySubtitle, resolveCategoryTitle } from './appData';
+import { buildFavicon, formatRelativeTime, resolveCategorySubtitle, resolveCategoryTitle } from './appData';
 
 export const ICON_MAP = {
   Archive,
@@ -151,7 +152,7 @@ export function CategoryCard({
       <div className="mt-auto space-y-2">
         {category.bookmarks.filter((bookmark) => !bookmark.isArchived).slice(0, 2).map((bookmark) => (
           <div className="flex items-center gap-3 rounded-2xl bg-white/[0.03] px-3 py-3 text-sm" key={bookmark.id}>
-            <img alt="" className="h-10 w-10 rounded-xl object-cover" referrerPolicy="no-referrer" src={bookmark.icon} />
+            <img alt={bookmark.title} className="h-10 w-10 rounded-xl object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).src = buildFavicon('', bookmark.title); }} referrerPolicy="no-referrer" src={bookmark.icon} />
             <div className="min-w-0">
               <div className="truncate font-semibold">{bookmark.title}</div>
               <div className="truncate text-xs text-on-surface/55">{bookmark.description}</div>
@@ -174,6 +175,7 @@ export function BookmarkSection({
   onFavorite,
   onArchive,
   onDelete,
+  onEdit,
 }: {
   bookmarks: BookmarkRecord[];
   lang: Lang;
@@ -185,8 +187,10 @@ export function BookmarkSection({
   onFavorite: (bookmark: BookmarkRecord) => void;
   onArchive: (bookmark: BookmarkRecord) => void;
   onDelete?: (bookmark: BookmarkRecord) => void;
+  onEdit?: (bookmark: BookmarkRecord) => void;
 }) {
   const openLinkLabel = lang === 'zh' ? '打开链接' : 'Open Link';
+  const editLabel = lang === 'zh' ? '编辑' : 'Edit';
 
   if (bookmarks.length === 0) {
     return (
@@ -210,7 +214,7 @@ export function BookmarkSection({
         {bookmarks.map((bookmark) => (
           <div className="panel-surface panel-hover flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-5" key={bookmark.id}>
             <div className="flex min-w-0 flex-1 items-center gap-4">
-              <img alt="" className="h-12 w-12 rounded-2xl border border-white/10 bg-white/5 object-cover" referrerPolicy="no-referrer" src={bookmark.icon} />
+              <img alt={bookmark.title} className="h-12 w-12 rounded-2xl border border-white/10 bg-white/5 object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).src = buildFavicon('', bookmark.title); }} referrerPolicy="no-referrer" src={bookmark.icon} />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h4 className="truncate text-base font-bold">{bookmark.title}</h4>
@@ -220,11 +224,16 @@ export function BookmarkSection({
               </div>
             </div>
             <div className="flex items-center justify-between gap-4 sm:justify-end">
-              <span className="text-xs text-on-surface/45">{formatRelativeMinutes(bookmark.createdAt, lang)}</span>
+              <span className="text-xs text-on-surface/45">{formatRelativeTime(bookmark.createdAt, lang)}</span>
               <div className="flex items-center gap-2">
                 <button className={`icon-button ${bookmark.isFavorite ? 'icon-button-active' : ''}`} onClick={() => onFavorite(bookmark)} type="button">
                   <Star className={`h-4 w-4 ${bookmark.isFavorite ? 'fill-current' : ''}`} />
                 </button>
+                {onEdit && (
+                  <button aria-label={editLabel} className="icon-button" onClick={() => onEdit(bookmark)} title={editLabel} type="button">
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                )}
                 <button className="icon-button" onClick={() => onArchive(bookmark)} type="button">
                   <Archive className="h-4 w-4" />
                 </button>
@@ -250,7 +259,7 @@ export function BookmarkSection({
         <motion.article animate={{ opacity: 1, y: 0 }} className="panel-surface panel-hover group flex h-full flex-col overflow-hidden p-5" initial={{ opacity: 0, y: 10 }} key={bookmark.id}>
           <div className="mb-5 flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <img alt="" className="h-12 w-12 rounded-2xl border border-white/10 bg-white/5 object-cover" referrerPolicy="no-referrer" src={bookmark.icon} />
+              <img alt={bookmark.title} className="h-12 w-12 rounded-2xl border border-white/10 bg-white/5 object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).src = buildFavicon('', bookmark.title); }} referrerPolicy="no-referrer" src={bookmark.icon} />
               <div className="min-w-0">
                 <h4 className="truncate text-base font-bold">{bookmark.title}</h4>
                 <p className="truncate text-xs uppercase tracking-[0.18em] text-on-surface/45">{bookmark.tag}</p>
@@ -260,6 +269,11 @@ export function BookmarkSection({
               <button className={`icon-button ${bookmark.isFavorite ? 'icon-button-active' : ''}`} onClick={() => onFavorite(bookmark)} type="button">
                 <Star className={`h-4 w-4 ${bookmark.isFavorite ? 'fill-current' : ''}`} />
               </button>
+              {onEdit && (
+                <button aria-label={editLabel} className="icon-button" onClick={() => onEdit(bookmark)} title={editLabel} type="button">
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
               <button className="icon-button" onClick={() => onArchive(bookmark)} type="button">
                 <Archive className="h-4 w-4" />
               </button>
@@ -301,7 +315,7 @@ export function ArchiveGrid({
         <div className="panel-surface panel-hover p-5" key={bookmark.id}>
           <div className="mb-4 flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <img alt="" className="h-12 w-12 rounded-2xl border border-white/10 bg-white/5 object-cover" referrerPolicy="no-referrer" src={bookmark.icon} />
+              <img alt={bookmark.title} className="h-12 w-12 rounded-2xl border border-white/10 bg-white/5 object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).src = buildFavicon('', bookmark.title); }} referrerPolicy="no-referrer" src={bookmark.icon} />
               <div className="min-w-0">
                 <h4 className="truncate text-base font-bold">{bookmark.title}</h4>
                 <p className="text-xs uppercase tracking-[0.16em] text-on-surface/45">{bookmark.tag}</p>
@@ -351,11 +365,3 @@ export function ViewSwitch({
   );
 }
 
-function formatRelativeMinutes(createdAt: number, lang: Lang) {
-  const deltaMinutes = Math.max(1, Math.round((Date.now() - createdAt) / 60000));
-  if (deltaMinutes < 60) return lang === 'zh' ? `${deltaMinutes} 分钟前` : `${deltaMinutes}m ago`;
-  const hours = Math.floor(deltaMinutes / 60);
-  if (hours < 24) return lang === 'zh' ? `${hours} 小时前` : `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return lang === 'zh' ? `${days} 天前` : `${days}d ago`;
-}

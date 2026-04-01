@@ -288,7 +288,7 @@
   }
 
   .theme-preview {
-    @apply rounded-[1.5rem] p-3 text-left sm:p-4;
+    @apply rounded-[1.5rem] p-2.5 text-left sm:p-4;
     background: rgb(255 255 255 / 0.03);
     border: 1px solid rgb(173 198 255 / 0.08);
   }
@@ -299,7 +299,7 @@
   }
 
   .theme-preview-canvas {
-    @apply relative mb-4 h-24 overflow-hidden rounded-2xl sm:h-28;
+    @apply relative mb-3 h-20 overflow-hidden rounded-2xl sm:mb-4 sm:h-28;
     border: 1px solid rgb(173 198 255 / 0.08);
   }
 
@@ -337,11 +337,19 @@
   }
 
   .mobile-nav {
-    @apply fixed inset-x-3 bottom-3 z-40 flex items-center justify-between rounded-[1.8rem] px-3 py-2.5 sm:inset-x-4 sm:bottom-4 sm:px-4 sm:py-3 xl:hidden;
+    @apply fixed inset-x-3 z-40 flex items-center justify-between rounded-[1.8rem] px-3 py-2.5 sm:inset-x-4 sm:px-4 sm:py-3 xl:hidden;
+    bottom: calc(0.75rem + env(safe-area-inset-bottom));
     background: var(--glass-fill);
     border: 1px solid rgb(173 198 255 / 0.1);
     box-shadow: var(--ambient-shadow);
     backdrop-filter: blur(18px);
+  }
+
+  /* Push main content above the mobile nav + iOS home indicator on non-desktop */
+  @media (max-width: 1279px) {
+    main {
+      padding-bottom: calc(10rem + env(safe-area-inset-bottom)) !important;
+    }
   }
 
   .mobile-nav-item {

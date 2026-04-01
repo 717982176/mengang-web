@@ -119,7 +119,12 @@ export function parseBookmarkImportText(
 }
 
 function parseJsonImport(text: string, knownCategoryIds: string[], defaultCategoryId: string): BookmarkImportResult {
-  const parsed = JSON.parse(text) as unknown;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error('INVALID_JSON');
+  }
   const items = Array.isArray(parsed)
     ? parsed
     : parsed && typeof parsed === 'object' && Array.isArray((parsed as { bookmarks?: unknown[] }).bookmarks)
