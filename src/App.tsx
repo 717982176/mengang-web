@@ -649,7 +649,7 @@ export default function App() {
 
         <AnimatePresence>
           {isAddModalOpen && (
-            <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
+            <div className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto px-4 py-4 sm:items-center sm:py-8">
               <motion.button
                 aria-label="Close add bookmark modal"
                 className="absolute inset-0 bg-background/60 backdrop-blur-md"
@@ -660,8 +660,7 @@ export default function App() {
                 type="button"
               />
               <motion.form
-                className="panel-surface relative w-full max-w-xl overflow-y-auto p-6 sm:p-7"
-                style={{ maxHeight: '90dvh' }}
+                className="panel-surface relative w-full max-w-xl p-6 sm:p-7"
                 initial={{ opacity: 0, y: 18, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 18, scale: 0.96 }}
@@ -757,7 +756,7 @@ export default function App() {
 
         <AnimatePresence>
           {editingBookmark && (
-            <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
+            <div className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto px-4 py-4 sm:items-center sm:py-8">
               <motion.button
                 aria-label="Close edit modal"
                 className="absolute inset-0 bg-background/60 backdrop-blur-md"
@@ -768,8 +767,7 @@ export default function App() {
                 type="button"
               />
               <motion.form
-                className="panel-surface relative w-full max-w-xl overflow-y-auto p-6 sm:p-7"
-                style={{ maxHeight: '90dvh' }}
+                className="panel-surface relative w-full max-w-xl p-6 sm:p-7"
                 initial={{ opacity: 0, y: 18, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 18, scale: 0.96 }}
