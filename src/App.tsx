@@ -8,9 +8,14 @@ import { AnimatePresence, motion } from 'motion/react';
 import {
   Archive,
   Briefcase,
+  CheckCircle2,
+  CheckSquare,
   ChevronDown,
+  Circle,
+  Clock,
   Command,
   ExternalLink,
+  FolderOpen,
   Languages,
   LayoutGrid,
   Loader2,
@@ -19,10 +24,13 @@ import {
   Menu,
   Moon,
   Pencil,
+  Pin,
+  PinOff,
   Plus,
   Search,
   Settings,
   Sparkles,
+  StickyNote,
   Star,
   Sun,
   Trash2,
@@ -60,6 +68,7 @@ import { useAuth } from './hooks/useAuth';
 import { useCloudSync } from './hooks/useCloudSync';
 import { useBookmarkActions } from './hooks/useBookmarkActions';
 import { useCommandPalette } from './hooks/useCommandPalette';
+import { useWorkbenchActions } from './hooks/useWorkbenchActions';
 
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -72,10 +81,23 @@ export default function App() {
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
+  // Workbench: new group modal state
+  const [isNewProjectGroupOpen, setIsNewProjectGroupOpen] = useState(false);
+  const [newProjectGroupName, setNewProjectGroupName] = useState('');
+  const [newProjectGroupColor, setNewProjectGroupColor] = useState<import('./appData').CategoryColor>('blue');
+  // Favorites: new group modal state
+  const [isNewFavGroupOpen, setIsNewFavGroupOpen] = useState(false);
+  const [newFavGroupName, setNewFavGroupName] = useState('');
+  const [activeFavGroup, setActiveFavGroup] = useState<string | null>(null); // null = all
+  // Tasks: new task input
+  const [taskInput, setTaskInput] = useState('');
+  // Notes: active editing note
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [isNoteFormOpen, setIsNoteFormOpen] = useState(false);
+  const [noteInput, setNoteInput] = useState('');
+  const [todayFocus, setTodayFocus] = useState('');
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const nonArchivedBookmarksRef = useRef<BookmarkRecord[]>([]);
-  // userRef lets usePreferences read the current user without a prop that creates
-  // a circular dependency (usePreferences needs user, useAuth needs preferencesRef).
   const userRef = useRef<FirebaseUser | null>(null);
 
   // ─── Preferences hook ──────────────────────────────────────────────────────
@@ -302,6 +324,25 @@ export default function App() {
     setIsCommandPaletteOpen(false);
   };
 
+  // ─── Workbench & Favorites actions ────────────────────────────────────────
+  const {
+    tasks,
+    notes,
+    projectGroups,
+    favoriteGroups,
+    isSavingTask,
+    addTask,
+    updateTaskStatus,
+    deleteTask,
+    saveNote,
+    toggleNotePin,
+    deleteNote,
+    addProjectGroup,
+    deleteProjectGroup,
+    addFavoriteGroup,
+    deleteFavoriteGroup,
+  } = useWorkbenchActions({ user, isBootstrapDone, setNotice });
+
   const stats = useMemo(
     () => [
       {
@@ -317,10 +358,10 @@ export default function App() {
         icon: Star,
       },
       {
-        label: t.categoryCount,
-        value: categories.filter((category) => category.id !== 'archive').length,
-        hint: t.statsCategoryHint,
-        icon: Sparkles,
+        label: t.pendingTasks,
+        value: tasks.filter((task) => task.status !== 'done').length,
+        hint: t.statsPendingTasksHint,
+        icon: CheckSquare,
       },
       {
         label: t.activeDays,
@@ -337,7 +378,7 @@ export default function App() {
         icon: Zap,
       },
     ],
-    [allBookmarks, nonArchivedBookmarks, favoriteBookmarks, categories, t],
+    [allBookmarks, nonArchivedBookmarks, favoriteBookmarks, tasks, categories, t],
   );
 
   const paletteFilter = paletteQuery.trim().toLowerCase();
@@ -963,6 +1004,26 @@ export default function App() {
                   </div>
                 </section>
                 <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{stats.map((stat) => <MetricCard key={stat.label} {...stat} />)}</section>
+                {/* Today's Focus widget */}
+                {todayFocus && (
+                  <section className="space-y-3">
+                    <div className="section-header">
+                      <div>
+                        <span className="label-meta">{t.dashboardFocus}</span>
+                        <h2 className="section-title">{t.todayFocus}</h2>
+                      </div>
+                      <button className="text-link" onClick={() => goToTab('work')} type="button">
+                        {t.dashboardFocusHint}
+                      </button>
+                    </div>
+                    <div className="panel-surface flex items-center gap-4 px-6 py-5">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/14 text-primary">
+                        <CheckSquare className="h-5 w-5" />
+                      </div>
+                      <p className="text-base font-semibold leading-snug text-on-surface">{todayFocus}</p>
+                    </div>
+                  </section>
+                )}
                 <section className="space-y-4">
                   <div className="section-header"><div><span className="label-meta">{t.featured}</span><h2 className="section-title">{t.pinned}</h2></div><button className="text-link" onClick={() => goToTab('favorites')} type="button">{t.viewAll}</button></div>
                   <BookmarkSection addLabel={t.addBookmark} bookmarks={featuredBookmarks} emptyBody={t.noBookmarksDesc} emptyTitle={t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onDelete={deleteBookmark} onEdit={openEditModal} onFavorite={toggleFavorite} viewMode="grid" />
@@ -978,7 +1039,147 @@ export default function App() {
               </div>
             )}
 
-            {activeTab === 'favorites' && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.favorites}</span><h1 className="section-title">{t.favorites}</h1></div><ViewSwitch gridLabel={t.grid} listLabel={t.list} onChange={setViewMode} viewMode={viewMode} /></div><BookmarkSection addLabel={t.addBookmark} bookmarks={displayedBookmarks} emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc} emptyTitle={queryText ? t.noResults : t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onDelete={deleteBookmark} onEdit={openEditModal} onFavorite={toggleFavorite} viewMode={viewMode} /></div>}
+            {activeTab === 'favorites' && (
+              <div className="space-y-6">
+                {/* Header */}
+                <div className="section-header">
+                  <div>
+                    <span className="label-meta">{t.favorites}</span>
+                    <h1 className="section-title">{t.favorites}</h1>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button className="ghost-button" onClick={() => setIsNewFavGroupOpen(true)} type="button">
+                      <Plus className="h-4 w-4" />
+                      {t.newFavoriteGroup}
+                    </button>
+                    <ViewSwitch gridLabel={t.grid} listLabel={t.list} onChange={setViewMode} viewMode={viewMode} />
+                  </div>
+                </div>
+
+                {/* Group filter tabs */}
+                {favoriteGroups.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      className={`rounded-2xl px-4 py-2 text-sm font-semibold transition-colors ${activeFavGroup === null ? 'bg-primary text-[#06101f]' : 'bg-white/6 text-on-surface/68 hover:bg-white/10'}`}
+                      onClick={() => setActiveFavGroup(null)}
+                      type="button"
+                    >
+                      {t.allFavorites}
+                      <span className="ml-2 text-xs opacity-70">{favoriteBookmarks.length}</span>
+                    </button>
+                    {favoriteGroups.map((group) => {
+                      const count = favoriteBookmarks.filter((b) => b.favoriteGroupId === group.id).length;
+                      return (
+                        <button
+                          className={`group flex items-center gap-1.5 rounded-2xl px-4 py-2 text-sm font-semibold transition-colors ${activeFavGroup === group.id ? 'bg-primary text-[#06101f]' : 'bg-white/6 text-on-surface/68 hover:bg-white/10'}`}
+                          key={group.id}
+                          onClick={() => setActiveFavGroup(group.id)}
+                          type="button"
+                        >
+                          {group.name}
+                          <span className="text-xs opacity-70">{count}</span>
+                          <span
+                            className="ml-1 hidden rounded-full p-0.5 hover:bg-white/20 group-hover:inline-flex"
+                            onClick={(e) => { e.stopPropagation(); void deleteFavoriteGroup(group.id); }}
+                            role="button"
+                            tabIndex={-1}
+                          >
+                            <X className="h-3 w-3" />
+                          </span>
+                        </button>
+                      );
+                    })}
+                    <button
+                      className="rounded-2xl px-4 py-2 text-sm font-semibold bg-white/6 text-on-surface/68 hover:bg-white/10"
+                      onClick={() => {
+                        const ungrouped = favoriteBookmarks.filter((b) => !b.favoriteGroupId);
+                        setActiveFavGroup('__ungrouped__');
+                      }}
+                      type="button"
+                    >
+                      {t.ungrouped}
+                      <span className="ml-2 text-xs opacity-70">
+                        {favoriteBookmarks.filter((b) => !b.favoriteGroupId).length}
+                      </span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Bookmark list */}
+                <BookmarkSection
+                  addLabel={t.addBookmark}
+                  bookmarks={(() => {
+                    let list = filterBookmarks(favoriteBookmarks, queryText);
+                    if (activeFavGroup === '__ungrouped__') list = list.filter((b) => !b.favoriteGroupId);
+                    else if (activeFavGroup) list = list.filter((b) => b.favoriteGroupId === activeFavGroup);
+                    return list;
+                  })()}
+                  emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc}
+                  emptyTitle={queryText ? t.noResults : t.noBookmarks}
+                  lang={lang}
+                  onAdd={openAddModal}
+                  onArchive={toggleArchive}
+                  onDelete={deleteBookmark}
+                  onEdit={openEditModal}
+                  onFavorite={toggleFavorite}
+                  viewMode={viewMode}
+                />
+
+                {/* New Favorite Group modal */}
+                <AnimatePresence>
+                  {isNewFavGroupOpen && (
+                    <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
+                      <motion.button
+                        aria-label="Close"
+                        className="absolute inset-0 bg-background/60 backdrop-blur-md"
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        onClick={() => setIsNewFavGroupOpen(false)}
+                        type="button"
+                      />
+                      <motion.div
+                        className="panel-surface relative w-full max-w-sm p-6"
+                        initial={{ opacity: 0, y: 14, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 14, scale: 0.97 }}
+                      >
+                        <div className="mb-5 flex items-center justify-between">
+                          <h2 className="font-headline text-xl font-extrabold">{t.newFavoriteGroup}</h2>
+                          <button className="icon-button" onClick={() => setIsNewFavGroupOpen(false)} type="button"><X className="h-4 w-4" /></button>
+                        </div>
+                        <label className="space-y-2 block">
+                          <span className="label-meta">{t.favoriteGroupName}</span>
+                          <input
+                            autoFocus
+                            className="neo-input w-full"
+                            placeholder={t.addFavoriteGroupPlaceholder}
+                            value={newFavGroupName}
+                            onChange={(e) => setNewFavGroupName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && newFavGroupName.trim()) {
+                                void addFavoriteGroup(newFavGroupName);
+                                setNewFavGroupName('');
+                                setIsNewFavGroupOpen(false);
+                              }
+                            }}
+                          />
+                        </label>
+                        <div className="mt-5 flex justify-end gap-3">
+                          <button className="ghost-button" onClick={() => setIsNewFavGroupOpen(false)} type="button">{t.cancel}</button>
+                          <button
+                            className="primary-button"
+                            disabled={!newFavGroupName.trim()}
+                            onClick={() => { void addFavoriteGroup(newFavGroupName); setNewFavGroupName(''); setIsNewFavGroupOpen(false); }}
+                            type="button"
+                          >
+                            <Plus className="h-4 w-4" />{t.submit}
+                          </button>
+                        </div>
+                      </motion.div>
+                    </div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
             {activeTab === 'archive' && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.archive}</span><h1 className="section-title">{t.archive}</h1><p className="mt-3 text-sm text-on-surface/58">{t.archiveDesc}</p></div>{archivedBookmarks.length > 0 && <button className="danger-button" onClick={() => void handleDeleteArchivedAll()} type="button"><Trash2 className="h-4 w-4" />{t.deleteAll}</button>}</div>{archivedBookmarks.length === 0 ? <div className="panel-surface flex min-h-[260px] flex-col items-center justify-center text-center"><Archive className="mb-4 h-12 w-12 text-on-surface/24" /><h3 className="text-xl font-bold">{t.emptyArchive}</h3><p className="mt-2 max-w-md text-sm text-on-surface/58">{t.archiveDesc}</p></div> : <ArchiveGrid bookmarks={archivedBookmarks} lang={lang} onDelete={deleteBookmark} onRestore={toggleArchive} />}</div>}
             {activeTab === 'personal' && <div className="space-y-8"><section className="hero-panel relative overflow-hidden px-6 py-8 sm:px-8"><img alt="" className="absolute inset-0 h-full w-full object-cover opacity-28" referrerPolicy="no-referrer" src={wallpaper || 'https://picsum.photos/seed/lumina-profile/1600/900'} /><div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" /><div className="relative z-10 flex flex-col gap-6 sm:flex-row sm:items-end"><button className="h-24 w-24 overflow-hidden rounded-[1.75rem] border border-white/14 bg-white/6 shadow-[0_18px_40px_rgba(0,0,0,0.25)]" onClick={() => !user && void signIn()} style={{ cursor: user ? 'default' : 'pointer' }} type="button">{user?.photoURL ? <img alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" src={user.photoURL} /> : <div className="flex h-full w-full items-center justify-center"><UserIcon className="h-10 w-10 text-on-surface/58" /></div>}</button><div className="min-w-0 flex-1"><span className="label-meta text-primary">{t.personalSpace}</span><h1 className="mt-3 font-headline text-4xl font-black tracking-tight">{user?.displayName || t.guest}</h1><p className="mt-3 max-w-2xl text-sm leading-7 text-on-surface/64">{user ? t.personalDesc : t.guestDesc}</p>{!user && <button className="primary-button mt-5" onClick={() => void signIn()} type="button"><LogIn className="h-4 w-4" />{t.signIn}</button>}</div></div></section><section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{stats.map((stat) => <MetricCard key={stat.label} {...stat} />)}</section><section className="space-y-4"><div className="section-header"><div><span className="label-meta">{t.preview}</span><h2 className="section-title">{t.yourCollections}</h2></div><button className="primary-button" onClick={openAddModal} type="button"><Plus className="h-4 w-4" />{t.addBookmark}</button></div><div className="grid gap-5 md:grid-cols-2">{categories.filter((category) => category.id === 'work' || category.id === 'personal').map((category) => <CategoryCard category={category} key={category.id} lang={lang} onOpen={() => goToTab(category.id)} />)}</div></section></div>}
             {activeTab === 'settings' && (
@@ -1120,7 +1321,363 @@ export default function App() {
                 </div>
               </div>
             )}
-            {activeCategory && !['dashboard', 'favorites', 'archive', 'personal', 'settings'].includes(activeTab) && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.sectionCategory}</span><h1 className="section-title">{resolveCategoryTitle(activeCategory, lang)}</h1><p className="mt-3 text-sm text-on-surface/58">{resolveCategorySubtitle(activeCategory, lang)}</p></div><ViewSwitch gridLabel={t.grid} listLabel={t.list} onChange={setViewMode} viewMode={viewMode} /></div><BookmarkSection addLabel={t.addBookmark} bookmarks={displayedBookmarks} emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc} emptyTitle={queryText ? t.noResults : t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onDelete={deleteBookmark} onEdit={openEditModal} onFavorite={toggleFavorite} viewMode={viewMode} /></div>}
+            {activeTab === 'work' && (
+              <div className="space-y-6">
+                {/* Header */}
+                <div className="section-header">
+                  <div>
+                    <span className="label-meta">{t.workbench}</span>
+                    <h1 className="section-title">{t.workbench}</h1>
+                    <p className="mt-2 text-sm text-on-surface/58">{t.workbenchSubtitle}</p>
+                  </div>
+                  <button className="primary-button" onClick={openAddModal} type="button">
+                    <Plus className="h-4 w-4" />{t.addBookmark}
+                  </button>
+                </div>
+
+                <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_340px]">
+                  {/* Left column: Project Groups + Bookmarks */}
+                  <div className="space-y-6">
+                    {/* Today's Focus */}
+                    <div className="panel-surface p-5">
+                      <div className="mb-3 flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-primary" />
+                        <span className="label-meta text-primary">{t.todayFocus}</span>
+                      </div>
+                      <input
+                        className="neo-input w-full text-base font-semibold"
+                        placeholder={t.todayFocusPlaceholder}
+                        value={todayFocus}
+                        onChange={(e) => setTodayFocus(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Project Groups */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <FolderOpen className="h-4 w-4 text-on-surface/55" />
+                          <span className="label-meta">{t.projectGroups}</span>
+                        </div>
+                        <button className="ghost-button" onClick={() => setIsNewProjectGroupOpen(true)} type="button">
+                          <Plus className="h-4 w-4" />{t.newProjectGroup}
+                        </button>
+                      </div>
+
+                      {projectGroups.length === 0 && (
+                        <div className="panel-surface flex flex-col items-center justify-center rounded-[2rem] border border-dashed border-white/8 px-6 py-8 text-center">
+                          <FolderOpen className="mb-3 h-10 w-10 text-on-surface/24" />
+                          <p className="text-sm text-on-surface/52">{lang === 'zh' ? '还没有项目组' : 'No project groups yet'}</p>
+                          <button className="ghost-button mt-4" onClick={() => setIsNewProjectGroupOpen(true)} type="button">
+                            <Plus className="h-4 w-4" />{t.newProjectGroup}
+                          </button>
+                        </div>
+                      )}
+
+                      {projectGroups.map((group) => {
+                        const groupColors: Record<string, string> = {
+                          blue: 'bg-primary/14 text-primary',
+                          violet: 'bg-violet-400/14 text-violet-200',
+                          emerald: 'bg-emerald-400/14 text-emerald-200',
+                          slate: 'bg-white/6 text-on-surface/78',
+                        };
+                        const groupBms = nonArchivedBookmarks.filter(
+                          (b) => b.categoryId === 'work' && group.bookmarkIds.includes(b.id),
+                        );
+                        return (
+                          <div className="panel-surface p-5" key={group.id}>
+                            <div className="mb-4 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${groupColors[group.color] ?? groupColors.blue}`}>
+                                  <FolderOpen className="h-4 w-4" />
+                                </div>
+                                <span className="font-semibold">{group.name}</span>
+                                <span className="label-meta">{groupBms.length} items</span>
+                              </div>
+                              <button
+                                className="icon-button"
+                                onClick={() => void deleteProjectGroup(group.id)}
+                                type="button"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                            {groupBms.length > 0 ? (
+                              <div className="space-y-2">
+                                {groupBms.map((bm) => (
+                                  <div className="flex items-center gap-3 rounded-2xl bg-white/[0.03] px-3 py-3" key={bm.id}>
+                                    <img alt={bm.title} className="h-9 w-9 rounded-xl border border-white/10 object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).src = buildFavicon('', bm.title); }} referrerPolicy="no-referrer" src={bm.icon} />
+                                    <div className="min-w-0 flex-1">
+                                      <div className="truncate text-sm font-semibold">{bm.title}</div>
+                                      <div className="truncate text-xs text-on-surface/52">{bm.description}</div>
+                                    </div>
+                                    <a className="icon-button" href={bm.url} rel="noreferrer" target="_blank">
+                                      <ExternalLink className="h-3.5 w-3.5" />
+                                    </a>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-on-surface/42">{lang === 'zh' ? '从工作台书签中添加链接到此组' : 'Add work bookmarks to this group'}</p>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Work bookmarks not in any group */}
+                      <div className="space-y-4">
+                        <span className="label-meta">{lang === 'zh' ? '工作台书签' : 'All Work Bookmarks'}</span>
+                        <BookmarkSection
+                          addLabel={t.addBookmark}
+                          bookmarks={filterBookmarks(
+                            (categories.find((c) => c.id === 'work')?.bookmarks ?? []).filter((b) => !b.isArchived),
+                            queryText,
+                          )}
+                          emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc}
+                          emptyTitle={queryText ? t.noResults : t.noBookmarks}
+                          lang={lang}
+                          onAdd={openAddModal}
+                          onArchive={toggleArchive}
+                          onDelete={deleteBookmark}
+                          onEdit={openEditModal}
+                          onFavorite={toggleFavorite}
+                          viewMode={viewMode}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right column: Tasks + Notes */}
+                  <div className="space-y-5">
+                    {/* Tasks */}
+                    <div className="panel-surface p-5">
+                      <div className="mb-4 flex items-center gap-2">
+                        <CheckSquare className="h-4 w-4 text-primary" />
+                        <span className="label-meta">{t.tasks}</span>
+                        <span className="ml-auto text-xs text-on-surface/45">
+                          {tasks.filter((t) => t.status !== 'done').length} {lang === 'zh' ? '待完成' : 'remaining'}
+                        </span>
+                      </div>
+                      {/* Add task */}
+                      <form
+                        className="mb-4 flex gap-2"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          if (!taskInput.trim()) return;
+                          void addTask(taskInput);
+                          setTaskInput('');
+                        }}
+                      >
+                        <input
+                          className="neo-input flex-1 text-sm"
+                          placeholder={t.addTaskPlaceholder}
+                          value={taskInput}
+                          onChange={(e) => setTaskInput(e.target.value)}
+                        />
+                        <button className="primary-button px-3" disabled={isSavingTask || !taskInput.trim()} type="submit">
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </form>
+
+                      {/* Task list grouped by status */}
+                      {tasks.length === 0 ? (
+                        <p className="py-4 text-center text-sm text-on-surface/45">{t.noTasks}</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {(['todo', 'doing', 'done'] as const).map((status) => {
+                            const statusTasks = tasks.filter((task) => task.status === status);
+                            if (statusTasks.length === 0) return null;
+                            const statusLabel = { todo: t.taskTodo, doing: t.taskDoing, done: t.taskDone }[status];
+                            const StatusIcon = { todo: Circle, doing: Clock, done: CheckCircle2 }[status];
+                            const statusColor = { todo: 'text-on-surface/52', doing: 'text-amber-300', done: 'text-emerald-400' }[status];
+                            return (
+                              <div key={status}>
+                                <div className={`mb-1 flex items-center gap-1.5 px-1 py-1 text-xs font-bold uppercase tracking-[0.14em] ${statusColor}`}>
+                                  <StatusIcon className="h-3.5 w-3.5" />
+                                  {statusLabel}
+                                </div>
+                                {statusTasks.map((task) => (
+                                  <div className="group flex items-center gap-2 rounded-xl px-2 py-2 hover:bg-white/[0.03]" key={task.id}>
+                                    <select
+                                      className="rounded-lg bg-transparent text-xs outline-none cursor-pointer"
+                                      value={task.status}
+                                      onChange={(e) => void updateTaskStatus(task.id, e.target.value as import('./appData').TaskStatus)}
+                                    >
+                                      <option value="todo">{t.taskTodo}</option>
+                                      <option value="doing">{t.taskDoing}</option>
+                                      <option value="done">{t.taskDone}</option>
+                                    </select>
+                                    <span className={`flex-1 text-sm ${task.status === 'done' ? 'line-through text-on-surface/40' : ''}`}>{task.title}</span>
+                                    <button
+                                      className="hidden icon-button group-hover:flex"
+                                      onClick={() => void deleteTask(task.id)}
+                                      type="button"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Notes */}
+                    <div className="panel-surface p-5">
+                      <div className="mb-4 flex items-center gap-2">
+                        <StickyNote className="h-4 w-4 text-primary" />
+                        <span className="label-meta">{t.notes}</span>
+                        <button
+                          className="ghost-button ml-auto py-1 px-2 text-xs"
+                          onClick={() => { setEditingNoteId(null); setNoteInput(''); setIsNoteFormOpen(true); }}
+                          type="button"
+                        >
+                          <Plus className="h-3.5 w-3.5" />{t.newNote}
+                        </button>
+                      </div>
+
+                      {/* Inline new/edit note form */}
+                      {isNoteFormOpen && (
+                        <div className="mb-4">
+                          <textarea
+                            autoFocus
+                            className="neo-input min-h-[90px] w-full resize-none text-sm"
+                            placeholder={t.notePlaceholder}
+                            value={noteInput}
+                            onChange={(e) => setNoteInput(e.target.value)}
+                          />
+                          <div className="mt-2 flex justify-end gap-2">
+                            <button className="ghost-button py-1 px-3 text-xs" onClick={() => { setIsNoteFormOpen(false); setEditingNoteId(null); setNoteInput(''); }} type="button">{t.cancel}</button>
+                            <button
+                              className="primary-button py-1 px-3 text-xs"
+                              disabled={!noteInput.trim()}
+                              onClick={() => {
+                                void saveNote(editingNoteId, noteInput);
+                                setIsNoteFormOpen(false);
+                                setEditingNoteId(null);
+                                setNoteInput('');
+                              }}
+                              type="button"
+                            >
+                              {t.submit}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {notes.length === 0 && !isNoteFormOpen ? (
+                        <p className="py-4 text-center text-sm text-on-surface/45">{t.noNotes}</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {[...notes].sort((a, b) => Number(b.isPinned) - Number(a.isPinned)).map((note) => (
+                            <div className="group rounded-2xl bg-white/[0.03] p-4" key={note.id}>
+                              <div className="mb-2 flex items-center justify-between">
+                                {note.isPinned && <Pin className="h-3 w-3 text-primary" />}
+                                <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    className="icon-button p-1"
+                                    onClick={() => void toggleNotePin(note)}
+                                    title={note.isPinned ? t.unpinNote : t.pinNote}
+                                    type="button"
+                                  >
+                                    {note.isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                                  </button>
+                                  <button
+                                    className="icon-button p-1"
+                                    onClick={() => { setEditingNoteId(note.id); setNoteInput(note.content); setIsNoteFormOpen(true); }}
+                                    type="button"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    className="icon-button p-1"
+                                    onClick={() => void deleteNote(note.id)}
+                                    type="button"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                              <p className="whitespace-pre-wrap text-sm leading-6 text-on-surface/75">{note.content}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* New Project Group modal */}
+                <AnimatePresence>
+                  {isNewProjectGroupOpen && (
+                    <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
+                      <motion.button
+                        aria-label="Close"
+                        className="absolute inset-0 bg-background/60 backdrop-blur-md"
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        onClick={() => setIsNewProjectGroupOpen(false)}
+                        type="button"
+                      />
+                      <motion.div
+                        className="panel-surface relative w-full max-w-sm p-6"
+                        initial={{ opacity: 0, y: 14, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 14, scale: 0.97 }}
+                      >
+                        <div className="mb-5 flex items-center justify-between">
+                          <h2 className="font-headline text-xl font-extrabold">{t.newProjectGroup}</h2>
+                          <button className="icon-button" onClick={() => setIsNewProjectGroupOpen(false)} type="button"><X className="h-4 w-4" /></button>
+                        </div>
+                        <label className="block space-y-2">
+                          <span className="label-meta">{t.projectGroupName}</span>
+                          <input
+                            autoFocus
+                            className="neo-input w-full"
+                            placeholder={t.addProjectGroupPlaceholder}
+                            value={newProjectGroupName}
+                            onChange={(e) => setNewProjectGroupName(e.target.value)}
+                          />
+                        </label>
+                        <label className="mt-4 block space-y-2">
+                          <span className="label-meta">{lang === 'zh' ? '颜色' : 'Color'}</span>
+                          <div className="flex gap-2">
+                            {(['blue', 'violet', 'emerald', 'slate'] as const).map((c) => {
+                              const colMap: Record<string, string> = { blue: 'bg-primary', violet: 'bg-violet-400', emerald: 'bg-emerald-400', slate: 'bg-white/30' };
+                              return (
+                                <button
+                                  className={`h-8 w-8 rounded-full transition-transform ${colMap[c]} ${newProjectGroupColor === c ? 'ring-2 ring-white ring-offset-2 ring-offset-background scale-110' : 'hover:scale-105'}`}
+                                  key={c}
+                                  onClick={() => setNewProjectGroupColor(c)}
+                                  type="button"
+                                />
+                              );
+                            })}
+                          </div>
+                        </label>
+                        <div className="mt-5 flex justify-end gap-3">
+                          <button className="ghost-button" onClick={() => setIsNewProjectGroupOpen(false)} type="button">{t.cancel}</button>
+                          <button
+                            className="primary-button"
+                            disabled={!newProjectGroupName.trim()}
+                            onClick={() => {
+                              void addProjectGroup(newProjectGroupName, newProjectGroupColor);
+                              setNewProjectGroupName('');
+                              setIsNewProjectGroupOpen(false);
+                            }}
+                            type="button"
+                          >
+                            <Plus className="h-4 w-4" />{t.submit}
+                          </button>
+                        </div>
+                      </motion.div>
+                    </div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+            {activeCategory && !['dashboard', 'favorites', 'archive', 'personal', 'settings', 'work'].includes(activeTab) && <div className="space-y-5"><div className="section-header"><div><span className="label-meta">{t.sectionCategory}</span><h1 className="section-title">{resolveCategoryTitle(activeCategory, lang)}</h1><p className="mt-3 text-sm text-on-surface/58">{resolveCategorySubtitle(activeCategory, lang)}</p></div><ViewSwitch gridLabel={t.grid} listLabel={t.list} onChange={setViewMode} viewMode={viewMode} /></div><BookmarkSection addLabel={t.addBookmark} bookmarks={displayedBookmarks} emptyBody={queryText ? t.commandEmpty : t.noBookmarksDesc} emptyTitle={queryText ? t.noResults : t.noBookmarks} lang={lang} onAdd={openAddModal} onArchive={toggleArchive} onDelete={deleteBookmark} onEdit={openEditModal} onFavorite={toggleFavorite} viewMode={viewMode} /></div>}
           </main>
           </div>
         </div>

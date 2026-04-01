@@ -16,6 +16,41 @@ export interface BookmarkRecord {
   isFavorite: boolean;
   isArchived: boolean;
   createdAt: number;
+  openCount?: number;
+  favoriteGroupId?: string;
+  note?: string;
+}
+
+export type TaskStatus = 'todo' | 'doing' | 'done';
+
+export interface TaskRecord {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  dueDate?: number;
+  createdAt: number;
+}
+
+export interface NoteRecord {
+  id: string;
+  content: string;
+  isPinned: boolean;
+  updatedAt: number;
+  createdAt: number;
+}
+
+export interface ProjectGroup {
+  id: string;
+  name: string;
+  bookmarkIds: string[];
+  color: CategoryColor;
+  createdAt: number;
+}
+
+export interface FavoriteGroup {
+  id: string;
+  name: string;
+  createdAt: number;
 }
 
 export interface CategoryRecord {
@@ -203,6 +238,42 @@ export const TRANSLATIONS = {
     aiSearchHint: '输入 ? 开头进行 AI 语义搜索',
     aiSearching: 'AI 正在搜索...',
     aiSearchLabel: 'AI 语义搜索结果',
+    // Workbench
+    workbench: '工作台',
+    workbenchSubtitle: '项目链接、任务与便签',
+    projectGroups: '项目分组',
+    newProjectGroup: '新建项目组',
+    projectGroupName: '项目组名称',
+    addProjectGroupPlaceholder: '例：设计资产 / 开发工具',
+    tasks: '任务',
+    addTask: '添加任务',
+    addTaskPlaceholder: '新建一条任务...',
+    taskTodo: '待办',
+    taskDoing: '进行中',
+    taskDone: '已完成',
+    notes: '便签',
+    newNote: '新建便签',
+    notePlaceholder: '写下你的想法...',
+    deleteNote: '删除便签',
+    pinNote: '置顶',
+    unpinNote: '取消置顶',
+    noTasks: '暂无任务',
+    noNotes: '暂无便签',
+    todayFocus: '今日专注',
+    todayFocusPlaceholder: '今天最重要的一件事...',
+    // Favorites
+    allFavorites: '全部收藏',
+    favoriteGroups: '收藏分组',
+    newFavoriteGroup: '新建分组',
+    favoriteGroupName: '分组名称',
+    addFavoriteGroupPlaceholder: '例：灵感 / 工具 / 常用',
+    ungrouped: '未分组',
+    manageGroups: '管理分组',
+    pendingTasks: '待完成任务',
+    statsPendingTasksHint: '待办与进行中任务数',
+    dashboardFocus: '今日专注',
+    dashboardFocusHint: '前往工作台编辑',
+    dashboardFocusEmpty: '还没有设置今日专注，前往工作台添加。',
   },
   en: {
     dashboard: 'Dashboard',
@@ -307,6 +378,42 @@ export const TRANSLATIONS = {
     aiSearchHint: 'Start with ? for AI semantic search',
     aiSearching: 'AI is searching...',
     aiSearchLabel: 'AI Semantic Results',
+    // Workbench
+    workbench: 'Workbench',
+    workbenchSubtitle: 'Project links, tasks, and notes',
+    projectGroups: 'Project Groups',
+    newProjectGroup: 'New Project Group',
+    projectGroupName: 'Group Name',
+    addProjectGroupPlaceholder: 'e.g. Design Assets / Dev Tools',
+    tasks: 'Tasks',
+    addTask: 'Add Task',
+    addTaskPlaceholder: 'Add a new task...',
+    taskTodo: 'Todo',
+    taskDoing: 'Doing',
+    taskDone: 'Done',
+    notes: 'Notes',
+    newNote: 'New Note',
+    notePlaceholder: 'Write your thoughts...',
+    deleteNote: 'Delete Note',
+    pinNote: 'Pin',
+    unpinNote: 'Unpin',
+    noTasks: 'No tasks yet',
+    noNotes: 'No notes yet',
+    todayFocus: "Today's Focus",
+    todayFocusPlaceholder: 'The one thing that matters today...',
+    // Favorites
+    allFavorites: 'All Favorites',
+    favoriteGroups: 'Favorite Groups',
+    newFavoriteGroup: 'New Group',
+    favoriteGroupName: 'Group Name',
+    addFavoriteGroupPlaceholder: 'e.g. Inspiration / Tools / Daily',
+    ungrouped: 'Ungrouped',
+    manageGroups: 'Manage Groups',
+    pendingTasks: 'Pending Tasks',
+    statsPendingTasksHint: 'Todo and in-progress tasks',
+    dashboardFocus: "Today's Focus",
+    dashboardFocusHint: 'Edit in Workbench',
+    dashboardFocusEmpty: "No focus set yet — head to Workbench to add one.",
   },
 } as const;
 

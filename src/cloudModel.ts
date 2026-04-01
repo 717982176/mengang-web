@@ -7,7 +7,12 @@ import {
   type BookmarkRecord,
   type CategoryColor,
   type CategoryRecord,
+  type FavoriteGroup,
   type Lang,
+  type NoteRecord,
+  type ProjectGroup,
+  type TaskRecord,
+  type TaskStatus,
   type Theme,
 } from './appData';
 import { normalizeBookmarkUrl } from './bookmarkTransfer';
@@ -42,6 +47,43 @@ export interface BookmarkDocument {
   tag: string;
   isFavorite: boolean;
   isArchived: boolean;
+  createdAt?: FieldValue | number | string | FirestoreTimestampLike | null;
+  openCount?: number;
+  favoriteGroupId?: string;
+  note?: string;
+}
+
+export interface TaskDocument {
+  id: string;
+  uid: string;
+  title: string;
+  status: TaskStatus;
+  dueDate?: number | null;
+  createdAt?: FieldValue | number | string | FirestoreTimestampLike | null;
+}
+
+export interface NoteDocument {
+  id: string;
+  uid: string;
+  content: string;
+  isPinned: boolean;
+  updatedAt?: FieldValue | number | string | FirestoreTimestampLike | null;
+  createdAt?: FieldValue | number | string | FirestoreTimestampLike | null;
+}
+
+export interface ProjectGroupDocument {
+  id: string;
+  uid: string;
+  name: string;
+  bookmarkIds: string[];
+  color: CategoryColor;
+  createdAt?: FieldValue | number | string | FirestoreTimestampLike | null;
+}
+
+export interface FavoriteGroupDocument {
+  id: string;
+  uid: string;
+  name: string;
   createdAt?: FieldValue | number | string | FirestoreTimestampLike | null;
 }
 
@@ -120,6 +162,9 @@ export function buildBookmarkDocument(bookmark: BookmarkRecord, uid: string): Bo
     tag: bookmark.tag.trim() || 'General',
     isFavorite: Boolean(bookmark.isFavorite),
     isArchived: Boolean(bookmark.isArchived),
+    ...(typeof bookmark.openCount === 'number' ? { openCount: bookmark.openCount } : {}),
+    ...(bookmark.favoriteGroupId ? { favoriteGroupId: bookmark.favoriteGroupId } : {}),
+    ...(bookmark.note ? { note: bookmark.note } : {}),
   };
 }
 
@@ -137,6 +182,94 @@ export function normalizeBookmarkDocument(id: string, data: Partial<BookmarkDocu
     categoryId: typeof data.categoryId === 'string' && data.categoryId.trim() ? data.categoryId.trim() : 'personal',
     isFavorite: Boolean(data.isFavorite),
     isArchived: Boolean(data.isArchived),
+    createdAt: toMillis(data.createdAt),
+    ...(typeof data.openCount === 'number' ? { openCount: data.openCount } : {}),
+    ...(typeof data.favoriteGroupId === 'string' && data.favoriteGroupId ? { favoriteGroupId: data.favoriteGroupId } : {}),
+    ...(typeof data.note === 'string' && data.note ? { note: data.note } : {}),
+  };
+}
+
+// ── TaskRecord ────────────────────────────────────────────────────────────────
+
+const VALID_TASK_STATUSES = new Set<import('./appData').TaskStatus>(['todo', 'doing', 'done']);
+
+export function buildTaskDocument(task: TaskRecord, uid: string): TaskDocument {
+  return {
+    id: task.id,
+    uid,
+    title: task.title.trim() || 'Untitled',
+    status: task.status,
+    ...(typeof task.dueDate === 'number' ? { dueDate: task.dueDate } : { dueDate: null }),
+  };
+}
+
+export function normalizeTaskDocument(id: string, data: Partial<TaskDocument>): TaskRecord {
+  return {
+    id,
+    title: typeof data.title === 'string' && data.title.trim() ? data.title.trim() : 'Untitled',
+    status: VALID_TASK_STATUSES.has(data.status as TaskStatus) ? (data.status as TaskStatus) : 'todo',
+    ...(typeof data.dueDate === 'number' && Number.isFinite(data.dueDate) ? { dueDate: data.dueDate } : {}),
+    createdAt: toMillis(data.createdAt),
+  };
+}
+
+// ── NoteRecord ────────────────────────────────────────────────────────────────
+
+export function buildNoteDocument(note: NoteRecord, uid: string): NoteDocument {
+  return {
+    id: note.id,
+    uid,
+    content: note.content,
+    isPinned: Boolean(note.isPinned),
+  };
+}
+
+export function normalizeNoteDocument(id: string, data: Partial<NoteDocument>): NoteRecord {
+  return {
+    id,
+    content: typeof data.content === 'string' ? data.content : '',
+    isPinned: Boolean(data.isPinned),
+    updatedAt: toMillis(data.updatedAt),
+    createdAt: toMillis(data.createdAt),
+  };
+}
+
+// ── ProjectGroup ──────────────────────────────────────────────────────────────
+
+export function buildProjectGroupDocument(group: ProjectGroup, uid: string): ProjectGroupDocument {
+  return {
+    id: group.id,
+    uid,
+    name: group.name.trim() || 'Untitled Group',
+    bookmarkIds: group.bookmarkIds,
+    color: group.color,
+  };
+}
+
+export function normalizeProjectGroupDocument(id: string, data: Partial<ProjectGroupDocument>): ProjectGroup {
+  return {
+    id,
+    name: typeof data.name === 'string' && data.name.trim() ? data.name.trim() : 'Untitled Group',
+    bookmarkIds: Array.isArray(data.bookmarkIds) ? data.bookmarkIds.filter((v) => typeof v === 'string') : [],
+    color: VALID_CATEGORY_COLORS.has(data.color as CategoryColor) ? (data.color as CategoryColor) : 'blue',
+    createdAt: toMillis(data.createdAt),
+  };
+}
+
+// ── FavoriteGroup ─────────────────────────────────────────────────────────────
+
+export function buildFavoriteGroupDocument(group: FavoriteGroup, uid: string): FavoriteGroupDocument {
+  return {
+    id: group.id,
+    uid,
+    name: group.name.trim() || 'Untitled Group',
+  };
+}
+
+export function normalizeFavoriteGroupDocument(id: string, data: Partial<FavoriteGroupDocument>): FavoriteGroup {
+  return {
+    id,
+    name: typeof data.name === 'string' && data.name.trim() ? data.name.trim() : 'Untitled Group',
     createdAt: toMillis(data.createdAt),
   };
 }
